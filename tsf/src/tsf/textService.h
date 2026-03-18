@@ -4,9 +4,33 @@
 #include <unknwn.h>
 #include <winrt/base.h>
 
+#include <functional>
+#include <list>
 #include <string>
 
+#include "utils/debugSink.hpp"
+
+
 namespace tsf {
+
+class EditSession : public winrt::implements<EditSession, ITfEditSession> {
+public:
+    STDMETHODIMP DoEditSession(TfEditCookie ec) override {
+        DebugSink::instance().send(L"INFO", L"EditSession DoEditSession called");
+        for (auto& oper : operations) {
+            oper(ec);
+        }
+        return S_OK;
+    }
+
+    void add_operation(std::function<void(TfEditCookie)> oper) {
+        operations.push_back(std::move(oper));
+    }
+
+private:
+    std::list<std::function<void(TfEditCookie)>> operations;
+};
+
 // clang-format off
 class TextService : 
     public winrt::implements<
@@ -55,9 +79,9 @@ private:
     HRESULT activate(ITfThreadMgr* pThreadMgr, TfClientId tfClientId);
     void deactivate();
 
-    HRESULT start_composition(ITfContext* pContext);
-    HRESULT end_composition(ITfContext* pContext);
-    HRESULT set_composition_text(ITfContext* pContext, const std::wstring& text);
+    HRESULT start_composition(ITfContext* pContext, EditSession* editsession);
+    HRESULT end_composition(ITfContext* pContext, EditSession* editsession);
+    HRESULT set_composition_text(ITfContext* pContext, EditSession* editsession, const std::wstring& text);
 
     winrt::com_ptr<ITfThreadMgr> threadMgr;
     TfClientId _tfClientId = TF_CLIENTID_NULL;

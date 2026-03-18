@@ -196,7 +196,7 @@ STDMETHODIMP TextService::OnSetFocus(BOOL /*fForeground*/) {
 STDMETHODIMP TextService::OnTestKeyDown(ITfContext* /*pContext*/, WPARAM wParam, LPARAM /*lParam*/, BOOL* pfEaten) {
     if (!pfEaten) return E_INVALIDARG;
 
-    *pfEaten = (Bopomofo::lookup(static_cast<int>(wParam)) == std::nullopt) ? TRUE : FALSE;
+    *pfEaten = (Bopomofo::lookup(static_cast<int>(wParam)) != std::nullopt) ? TRUE : FALSE;
     // *pfEaten = (wParam >= 'A' && wParam <= 'Z') ? TRUE : FALSE;
     return S_OK;
 }
@@ -220,10 +220,17 @@ STDMETHODIMP TextService::OnTestKeyUp(ITfContext* /*pContext*/, WPARAM /*wParam*
 STDMETHODIMP TextService::OnKeyDown(ITfContext* pContext, WPARAM wParam, LPARAM /*lParam*/, BOOL* pfEaten) {
     if (!pfEaten) return E_INVALIDARG;
     *pfEaten = FALSE;
-
+    DebugSink::instance().send(L"EVENT", L"OnKeyDown");
+    winrt::com_ptr<EditSession> session = winrt::make_self<EditSession>();
+    HRESULT hrSession;
+    HRESULT hr = pContext->RequestEditSession(_tfClientId, session.get(), TF_ES_READWRITE, &hrSession);
+    if (FAILED(hr)) {
+        DebugSink::instance().send(L"ERROR", L"RequestEditSession failed" + std::to_wstring(hr));
+        return hr;
+    }
     if (wParam == VK_RETURN && !compositionBuffer.empty()) {
         DebugSink::instance().send(L"COMMIT", compositionBuffer);
-        end_composition(pContext);
+        end_composition(pContext, session.get());
         *pfEaten = TRUE;
         return S_OK;
     }
@@ -231,8 +238,8 @@ STDMETHODIMP TextService::OnKeyDown(ITfContext* pContext, WPARAM wParam, LPARAM 
     if (wParam == VK_ESCAPE && itfComposition) {
         DebugSink::instance().send(L"CANCEL", compositionBuffer);
         compositionBuffer.clear();
-        set_composition_text(pContext, L"");
-        end_composition(pContext);
+        set_composition_text(pContext, session.get(), L"");
+        end_composition(pContext, session.get());
         *pfEaten = TRUE;
         return S_OK;
     }
@@ -240,9 +247,9 @@ STDMETHODIMP TextService::OnKeyDown(ITfContext* pContext, WPARAM wParam, LPARAM 
     if (wParam == VK_BACK && !compositionBuffer.empty()) {
         compositionBuffer.pop_back();
         if (compositionBuffer.empty()) {
-            end_composition(pContext);
+            end_composition(pContext, session.get());
         } else {
-            set_composition_text(pContext, compositionBuffer);
+            set_composition_text(pContext, session.get(), compositionBuffer);
         }
         *pfEaten = TRUE;
         return S_OK;
@@ -256,11 +263,11 @@ STDMETHODIMP TextService::OnKeyDown(ITfContext* pContext, WPARAM wParam, LPARAM 
     }
 
     if (!itfComposition) {
-        start_composition(pContext);
+        start_composition(pContext, session.get());
     }
     compositionBuffer.push_back(cur_char.value());
     DebugSink::instance().send(L"KEY", compositionBuffer);
-    set_composition_text(pContext, compositionBuffer);
+    set_composition_text(pContext, session.get(), compositionBuffer);
     *pfEaten = TRUE;
     return S_OK;
 }
@@ -324,7 +331,7 @@ STDMETHODIMP_(HRESULT __stdcall) TextService::GetDisplayAttributeInfo(REFGUID gu
  *
  * Creates the TSF composition objects needed for a new input session.
  */
-HRESULT TextService::start_composition(ITfContext* pContext) {
+HRESULT TextService::start_composition(ITfContext* pContext, EditSession* editsession) {
     if (!pContext) return E_INVALIDARG;
     if (itfComposition) return S_OK;
 
@@ -336,7 +343,16 @@ HRESULT TextService::start_composition(ITfContext* pContext) {
     hr = pContext->QueryInterface<ITfInsertAtSelection>(insertAtSelection.put());
     if (FAILED(hr)) return hr;
 
-    // TODO: Start composition in an edit session.
+    editsession->add_operation([this, contextComposition, insertAtSelection](TfEditCookie ec) {
+        winrt::com_ptr<ITfRange> range;
+        if (FAILED(insertAtSelection->InsertTextAtSelection(ec, TF_IAS_QUERYONLY, L"", 0, range.put()))) {
+            return;
+        }
+        if (FAILED(contextComposition->StartComposition(ec, range.get(), nullptr, itfComposition.put()))) {
+            return;
+        }
+    });
+
     return S_OK;
 }
 
@@ -345,13 +361,16 @@ HRESULT TextService::start_composition(ITfContext* pContext) {
  *
  * Clears the current composition object and buffered text.
  */
-HRESULT TextService::end_composition(ITfContext* /*pContext*/) {
+HRESULT TextService::end_composition(ITfContext* /*pContext*/, EditSession* editsession) {
     if (!itfComposition) return S_OK;
 
     // TODO: End composition through an edit session.
-    itfComposition->EndComposition(TF_INVALID_COOKIE);
-    itfComposition = nullptr;
-    compositionBuffer.clear();
+    editsession->add_operation([this](TfEditCookie ec) {
+        itfComposition->EndComposition(ec);
+        itfComposition = nullptr;
+        compositionBuffer.clear();
+    });
+
     return S_OK;
 }
 
@@ -360,8 +379,24 @@ HRESULT TextService::end_composition(ITfContext* /*pContext*/) {
  *
  * Applies the visible composition string to the current TSF context.
  */
-HRESULT TextService::set_composition_text(ITfContext* /*pContext*/, const std::wstring& /*text*/) {
+HRESULT TextService::set_composition_text(ITfContext* pContext, EditSession* editsession, const std::wstring& text) {
+    winrt::com_ptr<ITfContextComposition> contextComposition;
+    HRESULT hr = pContext->QueryInterface<ITfContextComposition>(contextComposition.put());
+    if (FAILED(hr)) return hr;
+
+    winrt::com_ptr<ITfInsertAtSelection> insertAtSelection;
+    hr = pContext->QueryInterface<ITfInsertAtSelection>(insertAtSelection.put());
+    if (FAILED(hr)) return hr;
     // TODO: Update composition string via ITfRange and ITfProperty.
+    editsession->add_operation([this, contextComposition, insertAtSelection, text](TfEditCookie ec) {
+        winrt::com_ptr<ITfRange> range;
+        if (FAILED(insertAtSelection->InsertTextAtSelection(ec, TF_IAS_QUERYONLY, L"", 0, range.put()))) {
+            return;
+        }
+        if (FAILED(range->SetText(ec, 0, text.data(), ULONG(text.size())))) {
+            return;
+        }
+    });
     return S_OK;
 }
 
