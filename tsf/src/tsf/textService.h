@@ -10,25 +10,49 @@
 
 #include "utils/debugSink.hpp"
 
-
 namespace tsf {
+
+// class EditSession : public winrt::implements<EditSession, ITfEditSession> {
+// public:
+//     STDMETHODIMP DoEditSession(TfEditCookie ec) override {
+//         DebugSink::instance().send(
+//             L"INFO", L"EditSession DoEditSession called : operations count = " + std::to_wstring(operations.size()));
+//         for (auto& oper : operations) {
+//             oper(ec);
+//         }
+//         return S_OK;
+//     }
+
+//     int operations_count() const {
+//         return static_cast<int>(operations.size());
+//     }
+
+//     void add_operation(std::function<void(TfEditCookie)> oper) {
+//         operations.push_back(std::move(oper));
+//     }
+
+// private:
+//     std::list<std::function<void(TfEditCookie)>> operations;
+// };
 
 class EditSession : public winrt::implements<EditSession, ITfEditSession> {
 public:
     STDMETHODIMP DoEditSession(TfEditCookie ec) override {
-        DebugSink::instance().send(L"INFO", L"EditSession DoEditSession called");
-        for (auto& oper : operations) {
+        if (oper) {
+            DebugSink::instance().send(L"INFO", L"EditSession DoEditSession called with operation set");
             oper(ec);
+        } else {
+            DebugSink::instance().send(L"INFO", L"EditSession DoEditSession called with no operation set");
         }
         return S_OK;
     }
 
-    void add_operation(std::function<void(TfEditCookie)> oper) {
-        operations.push_back(std::move(oper));
+    void set_operation(std::function<void(TfEditCookie)> func) {
+        this->oper = std::move(func);
     }
 
 private:
-    std::list<std::function<void(TfEditCookie)>> operations;
+    std::function<void(TfEditCookie)> oper;
 };
 
 // clang-format off
@@ -79,9 +103,9 @@ private:
     HRESULT activate(ITfThreadMgr* pThreadMgr, TfClientId tfClientId);
     void deactivate();
 
-    HRESULT start_composition(ITfContext* pContext, EditSession* editsession);
-    HRESULT end_composition(ITfContext* pContext, EditSession* editsession);
-    HRESULT set_composition_text(ITfContext* pContext, EditSession* editsession, const std::wstring& text);
+    HRESULT start_composition(ITfContext* pContext);
+    HRESULT end_composition(ITfContext* pContext);
+    HRESULT set_composition_text(ITfContext* pContext, const std::wstring& text);
 
     winrt::com_ptr<ITfThreadMgr> threadMgr;
     TfClientId _tfClientId = TF_CLIENTID_NULL;
