@@ -8,6 +8,7 @@
 #include <list>
 #include <string>
 
+#include "core/bopomofoBuffer.hpp"
 #include "utils/debugSink.hpp"
 
 namespace tsf {
@@ -111,7 +112,8 @@ private:
     TfClientId _tfClientId = TF_CLIENTID_NULL;
     DWORD dwThreadMgrEventSinkCookie = TF_INVALID_COOKIE;
     winrt::com_ptr<ITfComposition> itfComposition;
-    std::wstring compositionBuffer;
+    // std::wstring compositionBuffer;
+    BopomofoBuffer compositionBuffer;
 };
 
 };  // namespace tsf

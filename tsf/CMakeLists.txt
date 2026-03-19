@@ -22,6 +22,8 @@ target_compile_options(IME PRIVATE
 )
 
 find_package(cppwinrt CONFIG REQUIRED)
+find_package(jsoncons CONFIG REQUIRED)
+find_package(utf8cpp CONFIG REQUIRED)
 
 target_link_libraries(IME PRIVATE
     Microsoft::CppWinRT
@@ -29,7 +31,12 @@ target_link_libraries(IME PRIVATE
     ole32       # COM
     oleaut32    # COM Automation
     ws2_32      # Winsock2 (DebugSink)
+
+    jsoncons
+    utf8::cpp
+    utf8cpp::utf8cpp
 )
+
 
 set_target_properties(IME PROPERTIES
     OUTPUT_NAME "MyIME"

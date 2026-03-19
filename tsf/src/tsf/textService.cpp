@@ -234,14 +234,14 @@ STDMETHODIMP TextService::OnKeyDown(ITfContext* pContext, WPARAM wParam, LPARAM 
     // });
 
     if (wParam == VK_RETURN && !compositionBuffer.empty()) {
-        DebugSink::instance().send(L"COMMIT", compositionBuffer);
+        DebugSink::instance().send(L"COMMIT", compositionBuffer.to_string());
         end_composition(pContext);
         *pfEaten = TRUE;
         return S_OK;
     }
 
     if (wParam == VK_ESCAPE && itfComposition) {
-        DebugSink::instance().send(L"CANCEL", compositionBuffer);
+        DebugSink::instance().send(L"CANCEL", compositionBuffer.to_string());
         compositionBuffer.clear();
         set_composition_text(pContext, L"");
         end_composition(pContext);
@@ -254,7 +254,7 @@ STDMETHODIMP TextService::OnKeyDown(ITfContext* pContext, WPARAM wParam, LPARAM 
         if (compositionBuffer.empty()) {
             end_composition(pContext);
         } else {
-            set_composition_text(pContext, compositionBuffer);
+            set_composition_text(pContext, compositionBuffer.to_string());
         }
         *pfEaten = TRUE;
         return S_OK;
@@ -270,10 +270,9 @@ STDMETHODIMP TextService::OnKeyDown(ITfContext* pContext, WPARAM wParam, LPARAM 
     // if (!itfComposition) {
     //     start_composition(pContext);
     // }
-    // compositionBuffer.push_back(cur_char.value());
-    compositionBuffer = Engine::instance().add(compositionBuffer, cur_char.value());
-    DebugSink::instance().send(L"KEY", compositionBuffer);
-    set_composition_text(pContext, compositionBuffer);
+    compositionBuffer.add(cur_char.value());
+    DebugSink::instance().send(L"KEY", compositionBuffer.to_string());
+    set_composition_text(pContext, compositionBuffer.to_string());
     *pfEaten = TRUE;
     return S_OK;
 }
