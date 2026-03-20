@@ -45,9 +45,6 @@ class TextService :
         ITfDisplayAttributeProvider> {
     // clang-format on
 public:
-    TextService();
-    ~TextService();
-
     // ITfTextInputProcessor
     STDMETHODIMP Activate(ITfThreadMgr* pThreadMgr, TfClientId tfClientId) override;
     STDMETHODIMP Deactivate() override;
