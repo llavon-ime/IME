@@ -5,6 +5,7 @@
 #include <winrt/base.h>
 
 #include "globals.h"
+#include "sysutil.hpp"
 #include "tsf/textService.h"
 
 namespace tsf {
@@ -12,12 +13,8 @@ namespace tsf {
 /**
  * @brief Class factory for creating TSF service instances
  */
-class ClassFactory : public winrt::implements<ClassFactory, IClassFactory> {
+class ClassFactory : public winrt::implements<ClassFactory, IClassFactory>, public module_lock_updater {
 public:
-    ClassFactory() {
-        ++tsf::Globals::dll_ref_count;
-    }
-
     // IClassFactory
     STDMETHODIMP CreateInstance(IUnknown* pUnkOuter, REFIID riid, void** ppv) override {
         if (!ppv) return E_INVALIDARG;

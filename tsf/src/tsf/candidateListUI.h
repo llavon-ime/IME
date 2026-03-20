@@ -3,13 +3,16 @@
 #include <msctf.h>
 #include <winrt/base.h>
 
+#include "system/sysutil.hpp"
+
 namespace tsf {
 // clang-format off
 class CandidateListUIElement
     : winrt::implements<
         CandidateListUIElement, 
         ITfCandidateListUIElement, 
-        ITfCandidateListUIElementBehavior> {
+        ITfCandidateListUIElementBehavior>
+    , public module_lock_updater {
     // clang-format on
 public:
     // ITfCandidateListUIElement

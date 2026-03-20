@@ -12,24 +12,6 @@
 namespace tsf {
 
 /**
- * @brief TextService constructor.
- *
- * Increments the module reference count for this service instance.
- */
-TextService::TextService() {
-    ++Globals::dll_ref_count;
-}
-
-/**
- * @brief TextService destructor.
- *
- * Decrements the module reference count when the service is destroyed.
- */
-TextService::~TextService() {
-    --Globals::dll_ref_count;
-}
-
-/**
  * @brief Implements ITfTextInputProcessor::Activate.
  *
  * Delegates activation to the shared setup path.
@@ -222,16 +204,6 @@ STDMETHODIMP TextService::OnKeyDown(ITfContext* pContext, WPARAM wParam, LPARAM 
     if (!pfEaten) return E_INVALIDARG;
     *pfEaten = FALSE;
     DebugSink::instance().send(L"EVENT", L"OnKeyDown");
-    // winrt::com_ptr<EditSession> editSession = winrt::make_self<EditSession>();
-    // before_return edit([&]() {
-    //     if (editSession->operations_count() > 0) {
-    //         HRESULT hrSession;
-    //         pContext->RequestEditSession(_tfClientId, editSession.get(), TF_ES_READWRITE | TF_ES_SYNC, &hrSession) |
-    //             win::check();
-    //     } else {
-    //         DebugSink::instance().send(L"INFO", L"No operations to perform in edit session");
-    //     }
-    // });
 
     if (wParam == VK_RETURN && !compositionBuffer.empty()) {
         DebugSink::instance().send(L"COMMIT", compositionBuffer.to_string());
