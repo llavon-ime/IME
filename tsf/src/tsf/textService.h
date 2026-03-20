@@ -13,29 +13,6 @@
 
 namespace tsf {
 
-// class EditSession : public winrt::implements<EditSession, ITfEditSession> {
-// public:
-//     STDMETHODIMP DoEditSession(TfEditCookie ec) override {
-//         DebugSink::instance().send(
-//             L"INFO", L"EditSession DoEditSession called : operations count = " + std::to_wstring(operations.size()));
-//         for (auto& oper : operations) {
-//             oper(ec);
-//         }
-//         return S_OK;
-//     }
-
-//     int operations_count() const {
-//         return static_cast<int>(operations.size());
-//     }
-
-//     void add_operation(std::function<void(TfEditCookie)> oper) {
-//         operations.push_back(std::move(oper));
-//     }
-
-// private:
-//     std::list<std::function<void(TfEditCookie)>> operations;
-// };
-
 class EditSession : public winrt::implements<EditSession, ITfEditSession> {
 public:
     STDMETHODIMP DoEditSession(TfEditCookie ec) override {

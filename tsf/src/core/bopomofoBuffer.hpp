@@ -34,8 +34,7 @@ public:
     }
 
 private:
-    static std::filesystem::path resolve_mapping_file(
-        std::source_location loc = std::source_location::current()) {
+    static std::filesystem::path resolve_mapping_file(std::source_location loc = std::source_location::current()) {
         std::filesystem::path this_file = std::filesystem::path(loc.file_name()).lexically_normal();
         if (this_file.is_relative()) {
             this_file = std::filesystem::absolute(this_file).lexically_normal();
@@ -53,7 +52,6 @@ private:
     WordMappingEngine() {
         DebugSink::instance().send(L"LOAD", L"Loading mapping...");
         std::filesystem::path mapping_file = resolve_mapping_file();
-        // mapping = glaze::read_json<std::unordered_map<std::wstring, std::vector<std::wstring>>>(mapping_file);
         std::ifstream ifs(mapping_file.string());
         jsoncons::json j = jsoncons::json::parse(ifs);
         auto temp = j.as<std::unordered_map<std::string, std::vector<std::string>>>();
@@ -122,7 +120,7 @@ public:
         return result;
     }
     void add(wchar_t ch) {
-        // assert(ch is bopomofo)
+        // TODO: assert(ch is bopomofo)
         if (buffer.empty() || holds_alternative<Word>(buffer.back())) {
             buffer.push_back(CompositionUnit{});
         }

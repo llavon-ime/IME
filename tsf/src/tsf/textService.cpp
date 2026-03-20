@@ -376,12 +376,6 @@ HRESULT TextService::start_composition(ITfContext* pContext) {
 HRESULT TextService::end_composition(ITfContext* pContext) {
     if (!itfComposition) return S_OK;
 
-    // TODO: End composition through an edit session.
-    // editsession->add_operation([this](TfEditCookie ec) {
-    //     itfComposition->EndComposition(ec);
-    //     itfComposition = nullptr;
-    //     compositionBuffer.clear();
-    // });
     winrt::com_ptr<EditSession> editSession = winrt::make_self<EditSession>();
     editSession->set_operation([this](TfEditCookie ec) {
         if (itfComposition) {

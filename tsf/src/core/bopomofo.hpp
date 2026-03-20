@@ -9,7 +9,6 @@ namespace tsf {
 
 class Bopomofo {
 private:
-    // Win32 does not define VK_A..VK_Z / VK_0..VK_9 macros, so we define symbolic VK names here.
     static constexpr int VK_0 = 0x30;
     static constexpr int VK_1 = 0x31;
     static constexpr int VK_2 = 0x32;
