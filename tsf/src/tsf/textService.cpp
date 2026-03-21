@@ -9,6 +9,185 @@
 // #include "core/bopomofo.h"
 // #include "debugSink.h"
 
+namespace {
+
+inline constexpr winrt::guid kCompositionDisplayAttributeGuid = {
+    0x82769d2d, 0x9e5d, 0x4ace, {0x97, 0x53, 0x91, 0x3c, 0x0c, 0x7c, 0x4e, 0x38}};
+
+TF_DISPLAYATTRIBUTE make_composition_display_attribute() {
+    TF_DISPLAYATTRIBUTE attribute = {};
+    attribute.crText.type = TF_CT_NONE;
+    attribute.crBk.type = TF_CT_NONE;
+    attribute.lsStyle = TF_LS_DOT;
+    attribute.fBoldLine = FALSE;
+    attribute.crLine.type = TF_CT_SYSCOLOR;
+    attribute.crLine.nIndex = COLOR_WINDOWTEXT;
+    attribute.bAttr = TF_ATTR_INPUT;
+    return attribute;
+}
+
+class CompositionDisplayAttributeInfo
+    : public winrt::implements<CompositionDisplayAttributeInfo, ITfDisplayAttributeInfo> {
+public:
+    CompositionDisplayAttributeInfo() : attribute_(make_composition_display_attribute()), default_(attribute_) {}
+
+    STDMETHODIMP GetGUID(GUID* pguid) override {
+        if (!pguid) {
+            return E_INVALIDARG;
+        }
+        *pguid = kCompositionDisplayAttributeGuid;
+        return S_OK;
+    }
+
+    STDMETHODIMP GetDescription(BSTR* pbstrDesc) override {
+        if (!pbstrDesc) {
+            return E_INVALIDARG;
+        }
+        *pbstrDesc = SysAllocString(L"Composition");
+        return (*pbstrDesc != nullptr) ? S_OK : E_OUTOFMEMORY;
+    }
+
+    STDMETHODIMP GetAttributeInfo(TF_DISPLAYATTRIBUTE* pda) override {
+        if (!pda) {
+            return E_INVALIDARG;
+        }
+        *pda = attribute_;
+        return S_OK;
+    }
+
+    STDMETHODIMP SetAttributeInfo(const TF_DISPLAYATTRIBUTE* pda) override {
+        if (!pda) {
+            return E_INVALIDARG;
+        }
+        attribute_ = *pda;
+        return S_OK;
+    }
+
+    STDMETHODIMP Reset() override {
+        attribute_ = default_;
+        return S_OK;
+    }
+
+private:
+    TF_DISPLAYATTRIBUTE attribute_ = {};
+    TF_DISPLAYATTRIBUTE default_ = {};
+};
+
+class DisplayAttributeEnum : public winrt::implements<DisplayAttributeEnum, IEnumTfDisplayAttributeInfo> {
+public:
+    explicit DisplayAttributeEnum(winrt::com_ptr<ITfDisplayAttributeInfo> info, ULONG index = 0)
+        : info_(std::move(info)), index_(index) {}
+
+    STDMETHODIMP Clone(IEnumTfDisplayAttributeInfo** ppEnum) override {
+        if (!ppEnum) {
+            return E_INVALIDARG;
+        }
+        *ppEnum = nullptr;
+        auto enumerator = winrt::make_self<DisplayAttributeEnum>(info_, index_);
+        enumerator.as<IEnumTfDisplayAttributeInfo>().copy_to(ppEnum);
+        return S_OK;
+    }
+
+    STDMETHODIMP Next(ULONG ulCount, ITfDisplayAttributeInfo** rgInfo, ULONG* pcFetched) override {
+        if (!rgInfo) {
+            return E_INVALIDARG;
+        }
+        if (ulCount != 1 && !pcFetched) {
+            return E_INVALIDARG;
+        }
+
+        ULONG fetched = 0;
+        while (fetched < ulCount && index_ == 0 && info_) {
+            rgInfo[fetched] = info_.get();
+            rgInfo[fetched]->AddRef();
+            ++fetched;
+            ++index_;
+        }
+
+        if (pcFetched) {
+            *pcFetched = fetched;
+        }
+
+        return (fetched == ulCount) ? S_OK : S_FALSE;
+    }
+
+    STDMETHODIMP Reset() override {
+        index_ = 0;
+        return S_OK;
+    }
+
+    STDMETHODIMP Skip(ULONG ulCount) override {
+        if (ulCount == 0) {
+            return S_OK;
+        }
+        if (index_ == 0) {
+            index_ = 1;
+            return (ulCount == 1) ? S_OK : S_FALSE;
+        }
+        return S_FALSE;
+    }
+
+private:
+    winrt::com_ptr<ITfDisplayAttributeInfo> info_;
+    ULONG index_ = 0;
+};
+
+HRESULT get_composition_display_attribute_atom(TfGuidAtom* atom) {
+    if (!atom) {
+        return E_INVALIDARG;
+    }
+
+    static TfGuidAtom cached_atom = TF_INVALID_GUIDATOM;
+    if (cached_atom != TF_INVALID_GUIDATOM) {
+        *atom = cached_atom;
+        return S_OK;
+    }
+
+    ITfCategoryMgr* raw_category_mgr = nullptr;
+    const HRESULT hr = CoCreateInstance(CLSID_TF_CategoryMgr, nullptr, CLSCTX_INPROC_SERVER, IID_ITfCategoryMgr,
+                                        reinterpret_cast<void**>(&raw_category_mgr));
+    if (FAILED(hr)) {
+        return hr;
+    }
+
+    winrt::com_ptr<ITfCategoryMgr> category_mgr;
+    category_mgr.attach(raw_category_mgr);
+
+    const HRESULT register_hr = category_mgr->RegisterGUID(kCompositionDisplayAttributeGuid, &cached_atom);
+    if (FAILED(register_hr)) {
+        return register_hr;
+    }
+
+    *atom = cached_atom;
+    return S_OK;
+}
+
+HRESULT apply_composition_display_attribute(ITfContext* context, TfEditCookie ec, ITfRange* range) {
+    if (!context || !range) {
+        return E_INVALIDARG;
+    }
+
+    TfGuidAtom atom = TF_INVALID_GUIDATOM;
+    HRESULT hr = get_composition_display_attribute_atom(&atom);
+    if (FAILED(hr)) {
+        return hr;
+    }
+
+    winrt::com_ptr<ITfProperty> attribute_property;
+    hr = context->GetProperty(GUID_PROP_ATTRIBUTE, attribute_property.put());
+    if (FAILED(hr)) {
+        return hr;
+    }
+
+    VARIANT value;
+    VariantInit(&value);
+    value.vt = VT_I4;
+    value.lVal = atom;
+    return attribute_property->SetValue(ec, range, &value);
+}
+
+}  // namespace
+
 namespace tsf {
 
 /**
@@ -182,12 +361,8 @@ STDMETHODIMP TextService::OnTestKeyDown(ITfContext* /*pContext*/, WPARAM wParam,
     if (!pfEaten) return E_INVALIDARG;
     DebugSink::instance().send(L"EVENT", L"OnTestKeyDown key=" + std::to_wstring(wParam));
 
-    if (dwUIElementId != TF_INVALID_COOKIE) {
-        const bool candidate_key =
-            (wParam == VK_UP || wParam == VK_DOWN || wParam == VK_LEFT || wParam == VK_RIGHT || wParam == VK_RETURN ||
-             wParam == VK_SPACE || wParam == VK_ESCAPE || (wParam >= '1' && wParam <= '9') ||
-             (wParam >= VK_NUMPAD1 && wParam <= VK_NUMPAD9));
-        *pfEaten = candidate_key ? TRUE : FALSE;
+    if (candidate_ui_is_active()) {
+        *pfEaten = candidateListUIElement->can_handle_key(wParam) ? TRUE : FALSE;
         DebugSink::instance().send(
             L"EVENT", L"OnTestKeyDown candidate mode, eaten=" + std::wstring(*pfEaten ? L"TRUE" : L"FALSE"));
         return S_OK;
@@ -227,87 +402,8 @@ STDMETHODIMP TextService::OnKeyDown(ITfContext* pContext, WPARAM wParam, LPARAM 
     *pfEaten = FALSE;
     DebugSink::instance().send(L"EVENT", L"OnKeyDown");
 
-    if (dwUIElementId != TF_INVALID_COOKIE) {
-        UINT count = 0;
-        UINT selection = 0;
-        UINT currentPage = 0;
-        const HRESULT hrCount = candidateListUIElement->GetCount(&count);
-        const HRESULT hrSelection = candidateListUIElement->GetSelection(&selection);
-        const HRESULT hrCurrentPage = candidateListUIElement->GetCurrentPage(&currentPage);
-        DebugSink::instance().send(
-            L"INFO", L"candidate key mode, key=" + std::to_wstring(wParam) + L", count=" + std::to_wstring(count) +
-                         L", selection=" + std::to_wstring(selection) + L", currentPage=" +
-                         std::to_wstring(currentPage) + L", hrCount=" + std::to_wstring(hrCount) + L", hrSelection=" +
-                         std::to_wstring(hrSelection) + L", hrCurrentPage=" + std::to_wstring(hrCurrentPage));
-
-        if (SUCCEEDED(hrCount) && SUCCEEDED(hrSelection) && count > 0) {
-            constexpr UINT candidate_page_size = 9;
-            auto finalize_and_commit = [&]() {
-                candidateListUIElement->Finalize();
-                if (!compositionBuffer.empty()) {
-                    set_composition_text(pContext, compositionBuffer.to_string());
-                }
-                end_composition(pContext);
-            };
-
-            if (wParam == VK_UP) {
-                candidateListUIElement->select_prev_in_page();
-                *pfEaten = TRUE;
-                return S_OK;
-            }
-            if (wParam == VK_DOWN) {
-                candidateListUIElement->select_next_in_page();
-                *pfEaten = TRUE;
-                return S_OK;
-            }
-            if (wParam == VK_LEFT) {
-                candidateListUIElement->page_prev();
-                *pfEaten = TRUE;
-                return S_OK;
-            }
-            if (wParam == VK_RIGHT) {
-                if (!candidateListUIElement->is_expanded()) {
-                    candidateListUIElement->expand();
-                } else {
-                    candidateListUIElement->page_next();
-                }
-                *pfEaten = TRUE;
-                return S_OK;
-            }
-            if (wParam == VK_RETURN || wParam == VK_SPACE) {
-                finalize_and_commit();
-                *pfEaten = TRUE;
-                return S_OK;
-            }
-            if (wParam == VK_ESCAPE) {
-                candidateListUIElement->Abort();
-                hide_candidate_list();
-                *pfEaten = TRUE;
-                return S_OK;
-            }
-
-            if (wParam >= '1' && wParam <= '9') {
-                const UINT index = currentPage * candidate_page_size + static_cast<UINT>(wParam - '1');
-                if (index < count) {
-                    candidateListUIElement->SetSelection(index);
-                    finalize_and_commit();
-                    *pfEaten = TRUE;
-                    return S_OK;
-                }
-            }
-            if (wParam >= VK_NUMPAD1 && wParam <= VK_NUMPAD9) {
-                const UINT index = currentPage * candidate_page_size + static_cast<UINT>(wParam - VK_NUMPAD1);
-                if (index < count) {
-                    candidateListUIElement->SetSelection(index);
-                    finalize_and_commit();
-                    *pfEaten = TRUE;
-                    return S_OK;
-                }
-            }
-        }
-
-        DebugSink::instance().send(L"INFO", L"candidate key mode fallback -> hide candidate list");
-        hide_candidate_list();
+    if (handle_candidate_ui_key(pContext, wParam, pfEaten)) {
+        return S_OK;
     }
 
     if (wParam == VK_RETURN && !compositionBuffer.empty()) {
@@ -338,33 +434,13 @@ STDMETHODIMP TextService::OnKeyDown(ITfContext* pContext, WPARAM wParam, LPARAM 
     }
 
     if (wParam == VK_DOWN && !compositionBuffer.empty()) {
-        DebugSink::instance().send(
-            L"INFO", L"Showing candidate list for composition: " + compositionBuffer.to_string());
-        if (std::holds_alternative<Word>(compositionBuffer.back())) {
-            show_candidate_list(
-                pContext, compositionBuffer.back(),
-                WordMappingEngine::instance().lookup_all(std::get<Word>(compositionBuffer.back()).bopomofo));
-        } else {
-            show_candidate_list(pContext, compositionBuffer.back(),
-                                WordMappingEngine::instance().lookup_all(
-                                    std::get<CompositionUnit>(compositionBuffer.back()).get_bopomofo()));
-        }
+        show_candidate_list_for_current_input(pContext, false);
         *pfEaten = TRUE;
         return S_OK;
     }
 
     if (wParam == VK_RIGHT && !compositionBuffer.empty()) {
-        DebugSink::instance().send(L"INFO", L"Expand candidate list for composition: " + compositionBuffer.to_string());
-        if (std::holds_alternative<Word>(compositionBuffer.back())) {
-            show_candidate_list(
-                pContext, compositionBuffer.back(),
-                WordMappingEngine::instance().lookup_all(std::get<Word>(compositionBuffer.back()).bopomofo));
-        } else {
-            show_candidate_list(pContext, compositionBuffer.back(),
-                                WordMappingEngine::instance().lookup_all(
-                                    std::get<CompositionUnit>(compositionBuffer.back()).get_bopomofo()));
-        }
-        candidateListUIElement->expand();
+        show_candidate_list_for_current_input(pContext, true);
         *pfEaten = TRUE;
         return S_OK;
     }
@@ -426,8 +502,15 @@ STDMETHODIMP TextService::OnCompositionTerminated(TfEditCookie /*ecWrite*/, ITfC
  * Returns not implemented because display attributes are not exposed yet.
  */
 STDMETHODIMP TextService::EnumDisplayAttributeInfo(IEnumTfDisplayAttributeInfo** ppEnum) {
-    (void)ppEnum;
-    return E_NOTIMPL;
+    if (!ppEnum) {
+        return E_INVALIDARG;
+    }
+
+    *ppEnum = nullptr;
+    auto info = winrt::make_self<CompositionDisplayAttributeInfo>();
+    auto enumerator = winrt::make_self<DisplayAttributeEnum>(info.as<ITfDisplayAttributeInfo>());
+    enumerator.as<IEnumTfDisplayAttributeInfo>().copy_to(ppEnum);
+    return S_OK;
 }
 
 /**
@@ -436,9 +519,18 @@ STDMETHODIMP TextService::EnumDisplayAttributeInfo(IEnumTfDisplayAttributeInfo**
  * Returns not implemented because no display attribute metadata is defined yet.
  */
 STDMETHODIMP_(HRESULT __stdcall) TextService::GetDisplayAttributeInfo(REFGUID guid, ITfDisplayAttributeInfo** ppInfo) {
-    (void)guid;
-    (void)ppInfo;
-    return E_NOTIMPL;
+    if (!ppInfo) {
+        return E_INVALIDARG;
+    }
+
+    *ppInfo = nullptr;
+    if (!IsEqualGUID(guid, kCompositionDisplayAttributeGuid)) {
+        return E_INVALIDARG;
+    }
+
+    auto info = winrt::make_self<CompositionDisplayAttributeInfo>();
+    info.as<ITfDisplayAttributeInfo>().copy_to(ppInfo);
+    return S_OK;
 }
 
 /**
@@ -509,7 +601,7 @@ HRESULT TextService::end_composition(ITfContext* pContext) {
  * Applies the visible composition string to the current TSF context.
  */
 HRESULT TextService::set_composition_text(ITfContext* pContext, const std::wstring& text) {
-    // if (!itfComposition) return E_FAIL;
+    if (!pContext) return E_INVALIDARG;
 
     winrt::com_ptr<ITfContextComposition> contextComposition;
     HRESULT hr = pContext->QueryInterface<ITfContextComposition>(contextComposition.put());
@@ -519,30 +611,100 @@ HRESULT TextService::set_composition_text(ITfContext* pContext, const std::wstri
     hr = pContext->QueryInterface<ITfInsertAtSelection>(insertAtSelection.put());
     if (FAILED(hr)) return hr;
 
-    // TODO: Update composition string via ITfRange and ITfProperty.
     winrt::com_ptr<EditSession> editSession = winrt::make_self<EditSession>();
-    editSession->set_operation([=](TfEditCookie ec) {
+    editSession->set_operation([=, this](TfEditCookie ec) {
         winrt::com_ptr<ITfRange> range;
-        // insertAtSelection->InsertTextAtSelection(ec, TF_IAS_QUERYONLY, L"", 0, range.put()) | win::check();
         if (!itfComposition) {
             insertAtSelection->InsertTextAtSelection(ec, TF_IAS_QUERYONLY, nullptr, 0, range.put()) | win::check();
             contextComposition->StartComposition(
                 ec, range.get(), static_cast<ITfCompositionSink*>(this), itfComposition.put()) |
                 win::check();
         }
+
         range = nullptr;
         itfComposition->GetRange(range.put()) | win::check();
         range->SetText(ec, 0, text.data(), ULONG(text.size())) | win::check();
-        range->Collapse(ec, TF_ANCHOR_END) | win::check();
+
+        apply_composition_display_attribute(pContext, ec, range.get()) | win::check();
+
+        winrt::com_ptr<ITfRange> caret_range;
+        range->Clone(caret_range.put()) | win::check();
+        caret_range->Collapse(ec, TF_ANCHOR_END) | win::check();
 
         TF_SELECTION selection = {};
-        selection.range = range.get();
+        selection.range = caret_range.get();
         selection.style.ase = TF_AE_END;
         selection.style.fInterimChar = FALSE;
         pContext->SetSelection(ec, 1, &selection) | win::check();
     });
     pContext->RequestEditSession(_tfClientId, editSession.get(), TF_ES_READWRITE | TF_ES_SYNC, &hr) | win::check();
     return S_OK;
+}
+
+bool TextService::candidate_ui_is_active() const {
+    return candidateListUIElement && candidateListUIElement->is_shown();
+}
+
+bool TextService::handle_candidate_ui_key(ITfContext* pContext, WPARAM wParam, BOOL* pfEaten) {
+    if (!candidate_ui_is_active()) {
+        return false;
+    }
+
+    DebugSink::instance().send(L"INFO", L"handle_candidate_ui_key key=" + std::to_wstring(wParam));
+
+    const CandidateKeyResult result = candidateListUIElement->handle_key(wParam);
+    switch (result) {
+        case CandidateKeyResult::navigated:
+            *pfEaten = TRUE;
+            return true;
+        case CandidateKeyResult::finalized:
+            refresh_composition_after_candidate_finalize(pContext);
+            *pfEaten = TRUE;
+            return true;
+        case CandidateKeyResult::aborted:
+            hide_candidate_list();
+            *pfEaten = TRUE;
+            return true;
+        case CandidateKeyResult::not_handled:
+        default:
+            DebugSink::instance().send(L"INFO", L"handle_candidate_ui_key not handled -> hide candidate list");
+            hide_candidate_list();
+            return false;
+    }
+}
+
+void TextService::refresh_composition_after_candidate_finalize(ITfContext* pContext) {
+    if (!pContext || compositionBuffer.empty()) {
+        return;
+    }
+
+    DebugSink::instance().send(
+        L"INFO", L"refresh_composition_after_candidate_finalize text=" + compositionBuffer.to_string());
+    set_composition_text(pContext, compositionBuffer.to_string());
+}
+
+void TextService::show_candidate_list_for_current_input(ITfContext* pContext, bool expand) {
+    if (!pContext || compositionBuffer.empty()) {
+        return;
+    }
+
+    DebugSink::instance().send(
+        L"INFO", std::wstring(expand ? L"Expand candidate list for composition: "
+                                     : L"Showing candidate list for composition: ") +
+                     compositionBuffer.to_string());
+
+    auto& target = compositionBuffer.back();
+    if (std::holds_alternative<Word>(target)) {
+        show_candidate_list(
+            pContext, target, WordMappingEngine::instance().lookup_all(std::get<Word>(target).bopomofo));
+    } else {
+        show_candidate_list(pContext, target,
+                            WordMappingEngine::instance().lookup_all(std::get<CompositionUnit>(target).get_bopomofo()));
+    }
+
+    if (expand) {
+        candidateListUIElement->expand();
+    }
 }
 
 bool TextService::query_candidate_anchor(ITfContext* pContext, POINT* anchor) {
@@ -674,7 +836,7 @@ void TextService::show_candidate_list(ITfContext* pContext, std::variant<Word, C
         candidateListUIElement->clear_anchor_point();
     });
 
-    if (dwUIElementId != TF_INVALID_COOKIE) {
+    if (candidate_ui_is_active()) {
         DebugSink::instance().send(
             L"INFO", L"show_candidate_list reusing existing UI element id=" + std::to_wstring(dwUIElementId));
         const HRESULT update_hr = itfUIElementMgr->UpdateUIElement(dwUIElementId);

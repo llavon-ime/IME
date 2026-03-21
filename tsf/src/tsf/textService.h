@@ -82,6 +82,10 @@ private:
     HRESULT start_composition(ITfContext* pContext);
     HRESULT end_composition(ITfContext* pContext);
     HRESULT set_composition_text(ITfContext* pContext, const std::wstring& text);
+    bool candidate_ui_is_active() const;
+    bool handle_candidate_ui_key(ITfContext* pContext, WPARAM wParam, BOOL* pfEaten);
+    void refresh_composition_after_candidate_finalize(ITfContext* pContext);
+    void show_candidate_list_for_current_input(ITfContext* pContext, bool expand);
     bool query_candidate_anchor(ITfContext* pContext, POINT* anchor);
     void hide_candidate_list();
     void show_candidate_list(

@@ -14,6 +14,13 @@
 
 namespace tsf {
 
+enum class CandidateKeyResult {
+    not_handled,
+    navigated,
+    finalized,
+    aborted,
+};
+
 // clang-format off
 class CandidateListUIElement
     : public winrt::implements<
@@ -40,10 +47,10 @@ public:
     }
 
     HRESULT Show(BOOL bShow) override {
-        is_shown = (bShow != FALSE);
+        shown_ = (bShow != FALSE);
         DebugSink::instance().send(
-            L"INFO", L"CandidateListUIElement::Show bShow=" + std::wstring(is_shown ? L"TRUE" : L"FALSE"));
-        if (is_shown) {
+            L"INFO", L"CandidateListUIElement::Show bShow=" + std::wstring(shown_ ? L"TRUE" : L"FALSE"));
+        if (shown_) {
             refresh_window();
         } else {
             candidate_window.hide();
@@ -55,7 +62,7 @@ public:
         if (!pbShow) {
             return E_INVALIDARG;
         }
-        *pbShow = is_shown ? TRUE : FALSE;
+        *pbShow = shown_ ? TRUE : FALSE;
         return S_OK;
     }
 
@@ -186,6 +193,10 @@ public:
         has_anchor_point = false;
     }
 
+    bool is_shown() const {
+        return shown_;
+    }
+
     void update(const std::vector<std::wstring>& can, std::function<void(std::wstring)> callback) {
         candidates = can;
         selection_index = 0;
@@ -276,6 +287,68 @@ public:
         return true;
     }
 
+    bool can_handle_key(WPARAM wParam) const {
+        return wParam == VK_UP || wParam == VK_DOWN || wParam == VK_LEFT || wParam == VK_RIGHT || wParam == VK_RETURN ||
+               wParam == VK_SPACE || wParam == VK_ESCAPE || (wParam >= '1' && wParam <= '9') ||
+               (wParam >= VK_NUMPAD1 && wParam <= VK_NUMPAD9);
+    }
+
+    CandidateKeyResult handle_key(WPARAM wParam) {
+        if (!can_handle_key(wParam) || candidates.empty()) {
+            return CandidateKeyResult::not_handled;
+        }
+
+        if (wParam == VK_UP) {
+            select_prev_in_page();
+            return CandidateKeyResult::navigated;
+        }
+        if (wParam == VK_DOWN) {
+            select_next_in_page();
+            return CandidateKeyResult::navigated;
+        }
+        if (wParam == VK_LEFT) {
+            page_prev();
+            return CandidateKeyResult::navigated;
+        }
+        if (wParam == VK_RIGHT) {
+            if (!is_expanded()) {
+                expand();
+            } else {
+                page_next();
+            }
+            return CandidateKeyResult::navigated;
+        }
+        if (wParam == VK_RETURN || wParam == VK_SPACE) {
+            Finalize();
+            return CandidateKeyResult::finalized;
+        }
+        if (wParam == VK_ESCAPE) {
+            Abort();
+            return CandidateKeyResult::aborted;
+        }
+
+        const UINT page_begin = current_page * page_size;
+        if (wParam >= '1' && wParam <= '9') {
+            const UINT index = page_begin + static_cast<UINT>(wParam - '1');
+            if (index < candidates.size()) {
+                SetSelection(index);
+                Finalize();
+                return CandidateKeyResult::finalized;
+            }
+            return CandidateKeyResult::not_handled;
+        }
+        if (wParam >= VK_NUMPAD1 && wParam <= VK_NUMPAD9) {
+            const UINT index = page_begin + static_cast<UINT>(wParam - VK_NUMPAD1);
+            if (index < candidates.size()) {
+                SetSelection(index);
+                Finalize();
+                return CandidateKeyResult::finalized;
+            }
+        }
+
+        return CandidateKeyResult::not_handled;
+    }
+
 private:
     inline static constexpr uint32_t page_size = 9;
     inline static constexpr uint32_t expanded_columns = 4;
@@ -283,7 +356,7 @@ private:
     std::vector<std::wstring> candidates;
     UINT selection_index = 0;
     UINT current_page = 0;
-    bool is_shown = false;
+    bool shown_ = false;
     bool expanded = false;
     bool has_anchor_point = false;
     POINT anchor_point = {};
@@ -359,7 +432,7 @@ private:
         candidate_window.update_candidates(page_items);
         candidate_window.set_selection(local_selection);
 
-        if (is_shown) {
+        if (shown_) {
             if (has_anchor_point) {
                 candidate_window.show_at(anchor_point.x, anchor_point.y);
             } else {

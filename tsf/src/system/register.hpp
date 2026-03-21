@@ -89,6 +89,12 @@ HRESULT RegisterServer() {
     if (SUCCEEDED(hr)) {
         hr = pCategoryMgr->RegisterCategory(
             tsf::Globals::text_service_clsid, GUID_TFCAT_TIP_KEYBOARD, tsf::Globals::text_service_clsid);
+    }
+    if (SUCCEEDED(hr)) {
+        hr = pCategoryMgr->RegisterCategory(
+            tsf::Globals::text_service_clsid, GUID_TFCAT_DISPLAYATTRIBUTEPROVIDER, tsf::Globals::text_service_clsid);
+    }
+    if (pCategoryMgr) {
         pCategoryMgr->Release();
     }
 
@@ -108,6 +114,8 @@ HRESULT UnregisterServer() {
                                    reinterpret_cast<void**>(&pCategoryMgr)))) {
         pCategoryMgr->UnregisterCategory(
             tsf::Globals::text_service_clsid, GUID_TFCAT_TIP_KEYBOARD, tsf::Globals::text_service_clsid);
+        pCategoryMgr->UnregisterCategory(
+            tsf::Globals::text_service_clsid, GUID_TFCAT_DISPLAYATTRIBUTEPROVIDER, tsf::Globals::text_service_clsid);
         pCategoryMgr->Release();
     }
 

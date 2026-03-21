@@ -10,7 +10,6 @@
 
 #include "debugSink.hpp"
 
-
 namespace tsf {
 
 namespace win {
@@ -40,7 +39,7 @@ inline void operator|(HRESULT hr, const win::check& checker) {
         const std::string message =
             "HRESULT failure: " + std::to_string(hr) + " at " + file + ":" + std::to_string(location.line()) + " in " +
             function;
-        throw std::runtime_error(message);
+        throw winrt::hresult_error(hr, winrt::to_hstring(message));
     }
 }
 
