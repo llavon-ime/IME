@@ -6,6 +6,8 @@ cmake --build --preset x64-release-build
 
 # build script (all in one)
 python build_script.py
+or
+.\dev.bat
 
 # 查看所有可用 preset
 cmake --list-presets

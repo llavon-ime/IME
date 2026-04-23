@@ -8,75 +8,13 @@
 #include <variant>
 #include <vector>
 
+#include "core/bopomofo.hpp"
+#include "engine/engine.hpp"
 #include "jsoncons/json.hpp"
 #include "utf8cpp/utf8/cpp20.h"
 #include "utils/debugSink.hpp"
 
 namespace tsf {
-
-class WordMappingEngine {
-    // std::wstring 實際上代表一個漢字 為了多碼點字(BMP外)
-    std::unordered_map<std::wstring, std::vector<std::wstring>> mapping;
-
-public:
-    static WordMappingEngine& instance() {
-        static WordMappingEngine engine;
-        return engine;
-    }
-    std::wstring lookup_first(const std::wstring& bopomofo) {
-        if (mapping.contains(bopomofo) && !mapping[bopomofo].empty()) {
-            return mapping[bopomofo][0];
-        } else {
-            // temporary fallback
-            DebugSink::instance().send(L"MSG", bopomofo);
-            return L"找不到";
-        }
-    }
-    std::vector<std::wstring> lookup_all(const std::wstring& bopomofo) {
-        if (mapping.contains(bopomofo)) {
-            return mapping[bopomofo];
-        } else {
-            // temporary fallback
-            DebugSink::instance().send(L"MSG", bopomofo);
-            return {L"找不到"};
-        }
-    }
-
-private:
-    static std::filesystem::path resolve_mapping_file(std::source_location loc = std::source_location::current()) {
-        std::filesystem::path this_file = std::filesystem::path(loc.file_name()).lexically_normal();
-        if (this_file.is_relative()) {
-            this_file = std::filesystem::absolute(this_file).lexically_normal();
-        }
-
-        // tsf/src/core/bopomofoBuffer.hpp -> project root
-        std::filesystem::path project_root = this_file.parent_path().parent_path().parent_path().parent_path();
-        std::filesystem::path mapping_file = project_root / "tables" / "bopomofo_char.json";
-        if (!std::filesystem::exists(mapping_file)) {
-            throw std::runtime_error("Mapping file not found: " + mapping_file.string());
-        }
-        return mapping_file;
-    }
-
-    WordMappingEngine() {
-        DebugSink::instance().send(L"LOAD", L"Loading mapping...");
-        std::filesystem::path mapping_file = resolve_mapping_file();
-        std::ifstream ifs(mapping_file.string());
-        jsoncons::json j = jsoncons::json::parse(ifs);
-        auto temp = j.as<std::unordered_map<std::string, std::vector<std::string>>>();
-        for (auto& [k, v] : temp) {
-            auto u16key = utf8::utf8to16(k);
-            std::wstring wkey(u16key.begin(), u16key.end());
-            std::vector<std::wstring> wvec;
-            for (const auto& item : v) {
-                auto u16item = utf8::utf8to16(item);
-                std::wstring witem(u16item.begin(), u16item.end());
-                wvec.push_back(witem);
-            }
-            mapping[wkey] = std::move(wvec);
-        }
-    }
-};
 
 struct Word {  // 漢字
     std::wstring bopomofo;
@@ -109,7 +47,9 @@ public:
         if (!has_complete) {
             throw std::runtime_error("Cannot composit an incomplete composition unit");
         }
-        return WordMappingEngine::instance().lookup_first(bopomofo);
+        const auto candidates = WordMappingEngine::instance().lookup_all(bopomofo);
+        Engine::instance().predict_next(candidates);
+        return Engine::instance().predict_next(candidates)[0];
     }
 };
 

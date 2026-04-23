@@ -2,6 +2,7 @@
   "dependencies": [
     "cppwinrt",
     "jsoncons",
-    "utfcpp"
+    "utfcpp",
+    "llama-cpp"
   ]
 }

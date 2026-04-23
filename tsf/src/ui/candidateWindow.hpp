@@ -79,6 +79,7 @@ public:
             return;
         }
 
+        sync_window_dpi();
         resize_to_layout();
         render_surface();
         invalidate(FALSE);
@@ -115,6 +116,7 @@ public:
             return;
         }
 
+        sync_window_dpi();
         const auto [width, height] = client_size();
         DebugSink::instance().send(
             L"UI", L"CandidateWindow::show_near_cursor cursor=(" + std::to_wstring(cursor.x) + L"," +
@@ -134,9 +136,10 @@ public:
             return;
         }
 
+        sync_window_dpi();
         const auto [width, height] = client_size();
-        int x = anchorX + popup_offset_x;
-        int y = anchorY + popup_offset_y;
+        int x = anchorX + scale(popup_offset_x);
+        int y = anchorY + scale(popup_offset_y);
 
         const POINT anchor = {anchorX, anchorY};
         const HMONITOR monitor = MonitorFromPoint(anchor, MONITOR_DEFAULTTONEAREST);
@@ -150,7 +153,7 @@ public:
                 x = monitorInfo.rcWork.left;
             }
             if (y + height > monitorInfo.rcWork.bottom) {
-                y = anchorY - height - 4;
+                y = anchorY - height - scale(4);
             }
             if (y < monitorInfo.rcWork.top) {
                 y = monitorInfo.rcWork.top;
@@ -165,6 +168,7 @@ public:
     }
 
 private:
+    static constexpr UINT default_dpi = USER_DEFAULT_SCREEN_DPI;
     static constexpr int popup_width = 114;
     static constexpr int expanded_column_width = 84;
     static constexpr int column_gap = 12;
@@ -190,6 +194,10 @@ protected:
 
     LRESULT handle_message(UINT message, WPARAM wParam, LPARAM lParam) override {
         switch (message) {
+            case WM_DPICHANGED:
+                DebugSink::instance().send(L"UI", L"CandidateWindow::handle_message WM_DPICHANGED");
+                handle_dpi_changed(wParam, lParam);
+                return 0;
             case WM_SIZE:
                 DebugSink::instance().send(L"UI", L"CandidateWindow::handle_message WM_SIZE");
                 apply_round_region();
@@ -229,6 +237,7 @@ private:
         }
 
         apply_round_region();
+        sync_window_dpi();
         ensure_xaml_island();
         render_surface();
         DebugSink::instance().send(L"UI", L"CandidateWindow::ensure_window created");
@@ -239,10 +248,10 @@ private:
         const int rows = std::max(1, std::min(page_size, static_cast<int>(candidates_.size())));
         const std::size_t columns = std::max<std::size_t>(1, std::min(layout_columns_, max_layout_columns));
         const int width = (columns == 1)
-                              ? popup_width
-                              : content_padding_x * 2 + static_cast<int>(columns) * expanded_column_width +
-                                    static_cast<int>(columns - 1) * column_gap;
-        const int height = content_padding_y * 2 + rows * row_height + bottom_bar_height;
+                              ? scale(popup_width)
+                              : scale(content_padding_x * 2) + static_cast<int>(columns) * scale(expanded_column_width) +
+                                    static_cast<int>(columns - 1) * scale(column_gap);
+        const int height = scale(content_padding_y * 2) + rows * scale(row_height) + scale(bottom_bar_height);
         DebugSink::instance().send(L"UI", L"CandidateWindow::client_size rows=" + std::to_wstring(rows) + L", width=" +
                                               std::to_wstring(width) + L", height=" + std::to_wstring(height));
         return {width, height};
@@ -272,7 +281,7 @@ private:
             return;
         }
 
-        const int ellipse = corner_radius * 2;
+        const int ellipse = scale(corner_radius * 2);
         HRGN region = CreateRoundRectRgn(0, 0, width + 1, height + 1, ellipse, ellipse);
         if (!region) {
             DebugSink::instance().send(L"UI", L"CandidateWindow::apply_round_region CreateRoundRectRgn failed err=" +
@@ -288,6 +297,44 @@ private:
         }
         DebugSink::instance().send(L"UI", L"CandidateWindow::apply_round_region success width=" +
                                               std::to_wstring(width) + L", height=" + std::to_wstring(height));
+    }
+
+    static UINT dpi_from_wparam(WPARAM wParam) noexcept {
+        const UINT high = HIWORD(wParam);
+        const UINT low = LOWORD(wParam);
+        return high != 0 ? high : (low != 0 ? low : default_dpi);
+    }
+
+    int scale(int value) const noexcept {
+        return MulDiv(value, static_cast<int>(current_dpi_), static_cast<int>(default_dpi));
+    }
+
+    void sync_window_dpi() noexcept {
+        if (!created()) {
+            return;
+        }
+
+        const UINT dpi = GetDpiForWindow(hwnd());
+        if (dpi != 0 && dpi != current_dpi_) {
+            DebugSink::instance().send(L"UI", L"CandidateWindow::sync_window_dpi old=" + std::to_wstring(current_dpi_) +
+                                              L", new=" + std::to_wstring(dpi));
+            current_dpi_ = dpi;
+        }
+    }
+
+    void handle_dpi_changed(WPARAM wParam, LPARAM lParam) {
+        current_dpi_ = dpi_from_wparam(wParam);
+
+        RECT* suggested = reinterpret_cast<RECT*>(lParam);
+        const auto [width, height] = client_size();
+        if (suggested) {
+            set_window_pos(nullptr, suggested->left, suggested->top, width, height, SWP_NOACTIVATE | SWP_NOZORDER);
+        } else {
+            set_window_pos(nullptr, 0, 0, width, height, SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOZORDER);
+        }
+
+        render_surface();
+        invalidate(FALSE);
     }
 
     class XamlIslandHost {
@@ -675,6 +722,7 @@ private:
     std::size_t number_column_ = 0;
     bool can_prev_page_ = false;
     bool can_next_page_ = false;
+    UINT current_dpi_ = default_dpi;
     XamlIslandHost xaml_island_;
 };
 

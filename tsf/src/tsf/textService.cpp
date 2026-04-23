@@ -3,6 +3,7 @@
 #include "candidateUiController.hpp"
 #include "core/bopomofo.hpp"
 #include "editSession.hpp"
+#include "engine/engine.hpp"
 #include "system/globals.h"
 #include "utils/debugSink.hpp"
 #include "utils/healper.hpp"
@@ -478,6 +479,7 @@ STDMETHODIMP TextService::OnKeyDown(ITfContext* pContext, WPARAM wParam, LPARAM 
     //     start_composition(pContext);
     // }
     compositionBuffer.add(cur_char.value());
+    Engine::instance().add(cur_char.value());
     DebugSink::instance().send(L"KEY", compositionBuffer.to_string());
     set_composition_text(pContext, compositionBuffer.to_string());
     *pfEaten = TRUE;
@@ -679,15 +681,19 @@ void TextService::show_candidate_list_for_current_input(ITfContext* pContext, bo
     }
 
     auto& target = compositionBuffer.back();
+    std::vector<std::wstring> candidates = WordMappingEngine::instance().lookup_all(std::get<Word>(target).bopomofo);
     if (std::holds_alternative<Word>(target)) {
-        show_candidate_list(
-            target, WordMappingEngine::instance().lookup_all(std::get<Word>(target).bopomofo), pContext);
+        candidates = WordMappingEngine::instance().lookup_all(std::get<Word>(target).bopomofo);
+        // show_candidate_list(
+        //     target, WordMappingEngine::instance().lookup_all(std::get<Word>(target).bopomofo), pContext);
     } else {
-        show_candidate_list(
-            target, WordMappingEngine::instance().lookup_all(std::get<CompositionUnit>(target).get_bopomofo()),
-            pContext);
+        candidates = WordMappingEngine::instance().lookup_all(std::get<CompositionUnit>(target).get_bopomofo());
+        // show_candidate_list(
+        //     target, WordMappingEngine::instance().lookup_all(std::get<CompositionUnit>(target).get_bopomofo()),
+        //     pContext);
     }
-
+    candidates = Engine::instance().predict_next(candidates);
+    show_candidate_list(target, candidates, pContext);
     if (expand) {
         candidate_ui_->expand();
     }

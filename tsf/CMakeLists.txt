@@ -24,6 +24,7 @@ target_compile_options(IME PRIVATE
 find_package(cppwinrt CONFIG REQUIRED)
 find_package(jsoncons CONFIG REQUIRED)
 find_package(utf8cpp CONFIG REQUIRED)
+find_package(llama CONFIG REQUIRED)
 
 target_link_libraries(IME PRIVATE
     Microsoft::CppWinRT
@@ -37,6 +38,7 @@ target_link_libraries(IME PRIVATE
     jsoncons
     utf8::cpp
     utf8cpp::utf8cpp
+    llama
 )
 
 
