@@ -14,5 +14,4 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
 endif()
 
-# add_subdirectory(tsf_service) # wil version
 add_subdirectory(tsf)         # cppwinrt version

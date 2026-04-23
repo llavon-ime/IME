@@ -57,7 +57,7 @@ public:
 };
 
 class Engine {
-    const char *model_path = R"(E:\CODE_programming\LLM_TEST_CPP\models\gemma-3-270m.Q4_K_M.gguf)";
+    const char *model_path = R"(C:\code_prog\IME\models\gemma-3-270m.Q4_K_M.gguf)";
     const llama_model_ptr model;
     const llama_context_ptr context;
     const llama_vocab *vocab;
@@ -113,12 +113,13 @@ public:
     //         throw std::runtime_error(std::format("error occurss : {}", res));
     //     }
     // }
-
+    std::wstring context_buffer;
     void add(wchar_t c) {
         llama_token token = tokenizer.lookup(c);
         std::vector<llama_token> tokens{token};
         llama_batch batch = llama_batch_get_one(tokens.data(), (int32_t)tokens.size());
         int32_t res = llama_decode(context.get(), batch);
+        context_buffer.push_back(c);
         // llama_batch_free(batch);
         if (res != 0) {
             DebugSink::instance().send(L"ERROR", L"llama_decode error");
@@ -146,6 +147,7 @@ public:
                 res_set.insert(wtext[0]);
             }
         }
+        DebugSink::instance().send(L"INFO", L"context : " + context_buffer);
         DebugSink::instance().send(L"INFO", L"Predicted next candidates:");
         for (const auto &[w, prob] : res_with_prob) {
             DebugSink::instance().send(L"INFO", std::format(L"{} : prob={:.5f}", w, prob));

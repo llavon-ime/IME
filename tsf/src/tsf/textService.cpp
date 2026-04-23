@@ -479,7 +479,6 @@ STDMETHODIMP TextService::OnKeyDown(ITfContext* pContext, WPARAM wParam, LPARAM 
     //     start_composition(pContext);
     // }
     compositionBuffer.add(cur_char.value());
-    Engine::instance().add(cur_char.value());
     DebugSink::instance().send(L"KEY", compositionBuffer.to_string());
     set_composition_text(pContext, compositionBuffer.to_string());
     *pfEaten = TRUE;

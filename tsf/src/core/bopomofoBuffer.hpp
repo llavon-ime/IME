@@ -48,8 +48,9 @@ public:
             throw std::runtime_error("Cannot composit an incomplete composition unit");
         }
         const auto candidates = WordMappingEngine::instance().lookup_all(bopomofo);
-        Engine::instance().predict_next(candidates);
-        return Engine::instance().predict_next(candidates)[0];
+        auto top = Engine::instance().predict_next(candidates)[0];
+        Engine::instance().add(top[0]);
+        return top;
     }
 };
 
