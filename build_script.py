@@ -8,6 +8,12 @@ temp = root / ".temp"
 manifest = temp / ".src_manifest.txt"
 
 temp.mkdir(exist_ok=True)
+for p in temp.glob("*.dll"):
+    try:
+        p.unlink()
+    except OSError:
+        pass
+
 current = sorted(str(p.relative_to(root)).replace("\\", "/") for p in src.rglob("*") if p.is_file())
 previous = manifest.read_text(encoding="utf-8").splitlines() if manifest.exists() else []
 

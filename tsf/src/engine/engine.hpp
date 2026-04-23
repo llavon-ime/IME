@@ -57,7 +57,7 @@ public:
 };
 
 class Engine {
-    const char *model_path = R"(C:\code_prog\IME\models\gemma-3-270m.Q4_K_M.gguf)";
+    const char *model_path = R"(E:\CODE_programming\.IME\models\gemma-3-270m.Q4_K_M.gguf)";
     const llama_model_ptr model;
     const llama_context_ptr context;
     const llama_vocab *vocab;
@@ -69,6 +69,7 @@ class Engine {
           tokenizer(vocab) {
         llama_backend_init();
         DebugSink::instance().send(L"INFO", L"Model loaded successfully");
+        add_str(L"context: messenger(App) ");
     };
 
     struct Token_Prob {
@@ -120,7 +121,17 @@ public:
         llama_batch batch = llama_batch_get_one(tokens.data(), (int32_t)tokens.size());
         int32_t res = llama_decode(context.get(), batch);
         context_buffer.push_back(c);
-        // llama_batch_free(batch);
+        if (res != 0) {
+            DebugSink::instance().send(L"ERROR", L"llama_decode error");
+            throw std::runtime_error(std::format("error occurss : {}", res));
+        }
+    }
+
+    void add_str(const std::wstring &wstr) {
+        std::vector<llama_token> tokens = tokenize(wstr);
+        llama_batch batch = llama_batch_get_one(tokens.data(), (int32_t)tokens.size());
+        int32_t res = llama_decode(context.get(), batch);
+        context_buffer.append_range(wstr);
         if (res != 0) {
             DebugSink::instance().send(L"ERROR", L"llama_decode error");
             throw std::runtime_error(std::format("error occurss : {}", res));
@@ -155,17 +166,18 @@ public:
         return res;
     }
 
-    // std::vector<llama_token> tokenizer(const std::wstring &wstr) {
-    //     using namespace std::literals;
-    //     std::u16string u16str(wstr.begin(), wstr.end());
-    //     std::string str = utf8::utf16to8(u16str);
-    //     const auto needed = -llama_tokenize(vocab, str.c_str(), str.size(), nullptr, 0, false, false);
-    //     std::vector<llama_token> tokens(needed);
-    //     int32_t res = llama_tokenize(vocab, str.c_str(), str.size(), tokens.data(), tokens.size(), false, false);
-    //     if (res < 0) {
-    //         throw std::runtime_error("llama tokenize error n_tokens : "s + std::to_string(res));
-    //     }
-    //     return tokens;
-    // }
+    std::vector<llama_token> tokenize(const std::wstring &wstr) {
+        using namespace std::literals;
+        std::u16string u16str(wstr.begin(), wstr.end());
+        std::string str = utf8::utf16to8(u16str);
+        const auto needed = -llama_tokenize(vocab, str.c_str(), (int32_t)str.size(), nullptr, 0, false, false);
+        std::vector<llama_token> tokens(needed);
+        int32_t res = llama_tokenize(
+            vocab, str.c_str(), (int32_t)str.size(), tokens.data(), (int32_t)tokens.size(), false, false);
+        if (res < 0) {
+            throw std::runtime_error("llama tokenize error n_tokens : "s + std::to_string(res));
+        }
+        return tokens;
+    }
 };
 }  // namespace tsf
