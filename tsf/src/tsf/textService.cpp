@@ -200,8 +200,10 @@ TextService::~TextService() = default;
  *
  * Delegates activation to the shared setup path.
  */
-STDMETHODIMP TextService::Activate(ITfThreadMgr* pThreadMgr, TfClientId tfClientId) {
+STDMETHODIMP TextService::Activate(ITfThreadMgr* pThreadMgr, TfClientId tfClientId) try {
     return activate(pThreadMgr, tfClientId);
+} catch (...) {
+    return handle_com_exception();
 }
 
 /**
@@ -209,9 +211,11 @@ STDMETHODIMP TextService::Activate(ITfThreadMgr* pThreadMgr, TfClientId tfClient
  *
  * Tears down TSF state through the shared cleanup path.
  */
-STDMETHODIMP TextService::Deactivate() {
+STDMETHODIMP TextService::Deactivate() try {
     deactivate();
     return S_OK;
+} catch (...) {
+    return handle_com_exception();
 }
 
 /**
@@ -219,8 +223,10 @@ STDMETHODIMP TextService::Deactivate() {
  *
  * Uses the same activation flow and currently ignores extra flags.
  */
-STDMETHODIMP TextService::ActivateEx(ITfThreadMgr* pThreadMgr, TfClientId tfClientId, DWORD /*dwFlags*/) {
+STDMETHODIMP TextService::ActivateEx(ITfThreadMgr* pThreadMgr, TfClientId tfClientId, DWORD /*dwFlags*/) try {
     return activate(pThreadMgr, tfClientId);
+} catch (...) {
+    return handle_com_exception();
 }
 
 /**
@@ -310,8 +316,10 @@ void TextService::deactivate() {
  *
  * No document-manager initialization is required yet.
  */
-STDMETHODIMP TextService::OnInitDocumentMgr(ITfDocumentMgr* /*pDocMgr*/) {
+STDMETHODIMP TextService::OnInitDocumentMgr(ITfDocumentMgr* /*pDocMgr*/) try {
     return S_OK;
+} catch (...) {
+    return handle_com_exception();
 }
 
 /**
@@ -319,8 +327,10 @@ STDMETHODIMP TextService::OnInitDocumentMgr(ITfDocumentMgr* /*pDocMgr*/) {
  *
  * No document-manager teardown is required yet.
  */
-STDMETHODIMP TextService::OnUninitDocumentMgr(ITfDocumentMgr* /*pDocMgr*/) {
+STDMETHODIMP TextService::OnUninitDocumentMgr(ITfDocumentMgr* /*pDocMgr*/) try {
     return S_OK;
+} catch (...) {
+    return handle_com_exception();
 }
 
 /**
@@ -328,9 +338,12 @@ STDMETHODIMP TextService::OnUninitDocumentMgr(ITfDocumentMgr* /*pDocMgr*/) {
  *
  * Receives document focus changes but does not react to them yet.
  */
-STDMETHODIMP TextService::OnSetFocus(ITfDocumentMgr* /*pDocMgrFocus*/, ITfDocumentMgr* /*pDocMgrPrevFocus*/) {
+STDMETHODIMP TextService::OnSetFocus(ITfDocumentMgr* /*pDocMgrFocus*/,
+                                     ITfDocumentMgr* /*pDocMgrPrevFocus*/) try {
     // TODO: Initialize or clear per-document state on focus switch.
     return S_OK;
+} catch (...) {
+    return handle_com_exception();
 }
 
 /**
@@ -338,8 +351,10 @@ STDMETHODIMP TextService::OnSetFocus(ITfDocumentMgr* /*pDocMgrFocus*/, ITfDocume
  *
  * Accepts new contexts without additional bookkeeping.
  */
-STDMETHODIMP TextService::OnPushContext(ITfContext* /*pContext*/) {
+STDMETHODIMP TextService::OnPushContext(ITfContext* /*pContext*/) try {
     return S_OK;
+} catch (...) {
+    return handle_com_exception();
 }
 
 /**
@@ -347,8 +362,10 @@ STDMETHODIMP TextService::OnPushContext(ITfContext* /*pContext*/) {
  *
  * Releases contexts without additional cleanup.
  */
-STDMETHODIMP TextService::OnPopContext(ITfContext* /*pContext*/) {
+STDMETHODIMP TextService::OnPopContext(ITfContext* /*pContext*/) try {
     return S_OK;
+} catch (...) {
+    return handle_com_exception();
 }
 
 /**
@@ -356,8 +373,10 @@ STDMETHODIMP TextService::OnPopContext(ITfContext* /*pContext*/) {
  *
  * Tracks foreground changes but currently keeps no extra state.
  */
-STDMETHODIMP TextService::OnSetFocus(BOOL /*fForeground*/) {
+STDMETHODIMP TextService::OnSetFocus(BOOL /*fForeground*/) try {
     return S_OK;
+} catch (...) {
+    return handle_com_exception();
 }
 
 /**
@@ -365,7 +384,8 @@ STDMETHODIMP TextService::OnSetFocus(BOOL /*fForeground*/) {
  *
  * Reports whether the service intends to consume the key-down event.
  */
-STDMETHODIMP TextService::OnTestKeyDown(ITfContext* /*pContext*/, WPARAM wParam, LPARAM /*lParam*/, BOOL* pfEaten) {
+STDMETHODIMP TextService::OnTestKeyDown(ITfContext* /*pContext*/, WPARAM wParam, LPARAM /*lParam*/,
+                                        BOOL* pfEaten) try {
     if (!pfEaten) return E_INVALIDARG;
     DebugSink::instance().send(L"EVENT", L"OnTestKeyDown key=" + std::to_wstring(wParam));
 
@@ -387,6 +407,8 @@ STDMETHODIMP TextService::OnTestKeyDown(ITfContext* /*pContext*/, WPARAM wParam,
 
     *pfEaten = (Bopomofo::lookup(static_cast<int>(wParam)) != std::nullopt) ? TRUE : FALSE;
     return S_OK;
+} catch (...) {
+    return handle_com_exception();
 }
 
 /**
@@ -394,10 +416,13 @@ STDMETHODIMP TextService::OnTestKeyDown(ITfContext* /*pContext*/, WPARAM wParam,
  *
  * Leaves key-up events unhandled by default.
  */
-STDMETHODIMP TextService::OnTestKeyUp(ITfContext* /*pContext*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL* pfEaten) {
+STDMETHODIMP TextService::OnTestKeyUp(ITfContext* /*pContext*/, WPARAM /*wParam*/, LPARAM /*lParam*/,
+                                      BOOL* pfEaten) try {
     if (!pfEaten) return E_INVALIDARG;
     *pfEaten = FALSE;
     return S_OK;
+} catch (...) {
+    return handle_com_exception();
 }
 
 /**
@@ -405,7 +430,7 @@ STDMETHODIMP TextService::OnTestKeyUp(ITfContext* /*pContext*/, WPARAM /*wParam*
  *
  * Updates the active composition or handles commit and cancel keys.
  */
-STDMETHODIMP TextService::OnKeyDown(ITfContext* pContext, WPARAM wParam, LPARAM /*lParam*/, BOOL* pfEaten) {
+STDMETHODIMP TextService::OnKeyDown(ITfContext* pContext, WPARAM wParam, LPARAM /*lParam*/, BOOL* pfEaten) try {
     if (!pfEaten) return E_INVALIDARG;
     *pfEaten = FALSE;
     DebugSink::instance().send(L"EVENT", L"OnKeyDown");
@@ -483,6 +508,8 @@ STDMETHODIMP TextService::OnKeyDown(ITfContext* pContext, WPARAM wParam, LPARAM 
     set_composition_text(pContext, compositionBuffer.to_string());
     *pfEaten = TRUE;
     return S_OK;
+} catch (...) {
+    return handle_com_exception();
 }
 
 /**
@@ -490,10 +517,13 @@ STDMETHODIMP TextService::OnKeyDown(ITfContext* pContext, WPARAM wParam, LPARAM 
  *
  * Leaves key-up events unconsumed after key-down handling.
  */
-STDMETHODIMP TextService::OnKeyUp(ITfContext* /*pContext*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL* pfEaten) {
+STDMETHODIMP TextService::OnKeyUp(ITfContext* /*pContext*/, WPARAM /*wParam*/, LPARAM /*lParam*/,
+                                  BOOL* pfEaten) try {
     if (!pfEaten) return E_INVALIDARG;
     *pfEaten = FALSE;
     return S_OK;
+} catch (...) {
+    return handle_com_exception();
 }
 
 /**
@@ -501,10 +531,12 @@ STDMETHODIMP TextService::OnKeyUp(ITfContext* /*pContext*/, WPARAM /*wParam*/, L
  *
  * Declines preserved-key handling because no preserved keys are registered.
  */
-STDMETHODIMP TextService::OnPreservedKey(ITfContext* /*pContext*/, REFGUID /*rguid*/, BOOL* pfEaten) {
+STDMETHODIMP TextService::OnPreservedKey(ITfContext* /*pContext*/, REFGUID /*rguid*/, BOOL* pfEaten) try {
     if (!pfEaten) return E_INVALIDARG;
     *pfEaten = FALSE;
     return S_OK;
+} catch (...) {
+    return handle_com_exception();
 }
 
 /**
@@ -512,11 +544,13 @@ STDMETHODIMP TextService::OnPreservedKey(ITfContext* /*pContext*/, REFGUID /*rgu
  *
  * Clears local composition state when TSF ends the composition externally.
  */
-STDMETHODIMP TextService::OnCompositionTerminated(TfEditCookie /*ecWrite*/, ITfComposition* /*pComposition*/) {
+STDMETHODIMP TextService::OnCompositionTerminated(TfEditCookie /*ecWrite*/, ITfComposition* /*pComposition*/) try {
     candidate_ui_->hide();
     itfComposition = nullptr;
     compositionBuffer.clear();
     return S_OK;
+} catch (...) {
+    return handle_com_exception();
 }
 
 /**
@@ -524,7 +558,7 @@ STDMETHODIMP TextService::OnCompositionTerminated(TfEditCookie /*ecWrite*/, ITfC
  *
  * Returns not implemented because display attributes are not exposed yet.
  */
-STDMETHODIMP TextService::EnumDisplayAttributeInfo(IEnumTfDisplayAttributeInfo** ppEnum) {
+STDMETHODIMP TextService::EnumDisplayAttributeInfo(IEnumTfDisplayAttributeInfo** ppEnum) try {
     if (!ppEnum) {
         return E_INVALIDARG;
     }
@@ -534,6 +568,8 @@ STDMETHODIMP TextService::EnumDisplayAttributeInfo(IEnumTfDisplayAttributeInfo**
     auto enumerator = winrt::make_self<DisplayAttributeEnum>(info.as<ITfDisplayAttributeInfo>());
     enumerator.as<IEnumTfDisplayAttributeInfo>().copy_to(ppEnum);
     return S_OK;
+} catch (...) {
+    return handle_com_exception();
 }
 
 /**
@@ -541,7 +577,8 @@ STDMETHODIMP TextService::EnumDisplayAttributeInfo(IEnumTfDisplayAttributeInfo**
  *
  * Returns not implemented because no display attribute metadata is defined yet.
  */
-STDMETHODIMP_(HRESULT __stdcall) TextService::GetDisplayAttributeInfo(REFGUID guid, ITfDisplayAttributeInfo** ppInfo) {
+STDMETHODIMP_(HRESULT __stdcall)
+TextService::GetDisplayAttributeInfo(REFGUID guid, ITfDisplayAttributeInfo** ppInfo) try {
     if (!ppInfo) {
         return E_INVALIDARG;
     }
@@ -554,6 +591,8 @@ STDMETHODIMP_(HRESULT __stdcall) TextService::GetDisplayAttributeInfo(REFGUID gu
     auto info = winrt::make_self<CompositionDisplayAttributeInfo>();
     info.as<ITfDisplayAttributeInfo>().copy_to(ppInfo);
     return S_OK;
+} catch (...) {
+    return handle_com_exception();
 }
 
 /**
