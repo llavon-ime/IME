@@ -1,7 +1,7 @@
 #pragma once
 
-#include <windows.ui.xaml.hosting.desktopwindowxamlsource.h>
 #include <windows.h>
+#include <windows.ui.xaml.hosting.desktopwindowxamlsource.h>
 #include <winrt/Windows.Foundation.Collections.h>
 #include <winrt/Windows.Foundation.h>
 #include <winrt/Windows.UI.Text.h>
@@ -54,10 +54,6 @@ public:
             candidates_.resize(max_visible_candidates);
             DebugSink::instance().send(
                 L"UI", L"CandidateWindow::update_candidates truncated_count=" + std::to_wstring(candidates_.size()));
-        }
-        for (std::size_t i = 0; i < candidates_.size(); ++i) {
-            DebugSink::instance().send(
-                L"UI", L"CandidateWindow::candidate[" + std::to_wstring(i) + L"]=" + candidates_[i]);
         }
 
         if (candidates_.empty()) {
@@ -247,10 +243,11 @@ private:
     std::pair<int, int> client_size() const {
         const int rows = std::max(1, std::min(page_size, static_cast<int>(candidates_.size())));
         const std::size_t columns = std::max<std::size_t>(1, std::min(layout_columns_, max_layout_columns));
-        const int width = (columns == 1)
-                              ? scale(popup_width)
-                              : scale(content_padding_x * 2) + static_cast<int>(columns) * scale(expanded_column_width) +
-                                    static_cast<int>(columns - 1) * scale(column_gap);
+        const int width =
+            (columns == 1)
+                ? scale(popup_width)
+                : scale(content_padding_x * 2) + static_cast<int>(columns) * scale(expanded_column_width) +
+                      static_cast<int>(columns - 1) * scale(column_gap);
         const int height = scale(content_padding_y * 2) + rows * scale(row_height) + scale(bottom_bar_height);
         DebugSink::instance().send(L"UI", L"CandidateWindow::client_size rows=" + std::to_wstring(rows) + L", width=" +
                                               std::to_wstring(width) + L", height=" + std::to_wstring(height));
@@ -317,7 +314,7 @@ private:
         const UINT dpi = GetDpiForWindow(hwnd());
         if (dpi != 0 && dpi != current_dpi_) {
             DebugSink::instance().send(L"UI", L"CandidateWindow::sync_window_dpi old=" + std::to_wstring(current_dpi_) +
-                                              L", new=" + std::to_wstring(dpi));
+                                                  L", new=" + std::to_wstring(dpi));
             current_dpi_ = dpi;
         }
     }
@@ -347,7 +344,8 @@ private:
             const HRESULT apartment_hr = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
             if (FAILED(apartment_hr) && apartment_hr != RPC_E_CHANGED_MODE) {
                 DebugSink::instance().send(
-                    L"UI", L"CandidateWindow::XamlIslandHost CoInitializeEx failed hr=" + std::to_wstring(apartment_hr));
+                    L"UI",
+                    L"CandidateWindow::XamlIslandHost CoInitializeEx failed hr=" + std::to_wstring(apartment_hr));
                 return false;
             }
             if (apartment_hr == RPC_E_CHANGED_MODE) {
@@ -373,14 +371,13 @@ private:
                 winrt::check_hresult(interop->get_WindowHandle(&island_hwnd));
                 island_hwnd_ = island_hwnd;
 
-                DebugSink::instance().send(
-                    L"UI", L"CandidateWindow::XamlIslandHost attached hwnd=" +
-                               std::to_wstring(reinterpret_cast<ULONG_PTR>(island_hwnd_)));
+                DebugSink::instance().send(L"UI", L"CandidateWindow::XamlIslandHost attached hwnd=" +
+                                                      std::to_wstring(reinterpret_cast<ULONG_PTR>(island_hwnd_)));
                 return true;
             } catch (const winrt::hresult_error& e) {
                 DebugSink::instance().send(
-                    L"UI", L"CandidateWindow::XamlIslandHost ensure failed hr=" +
-                               std::to_wstring(e.code().value) + L", message=" + std::wstring(e.message().c_str()));
+                    L"UI", L"CandidateWindow::XamlIslandHost ensure failed hr=" + std::to_wstring(e.code().value) +
+                               L", message=" + std::wstring(e.message().c_str()));
             } catch (...) {
                 DebugSink::instance().send(L"UI", L"CandidateWindow::XamlIslandHost ensure failed with unknown error");
             }
@@ -397,11 +394,11 @@ private:
             if (island_hwnd_ == nullptr) {
                 return;
             }
-            const BOOL ok =
-                SetWindowPos(island_hwnd_, nullptr, 0, 0, width, height, SWP_NOACTIVATE | SWP_NOZORDER | SWP_SHOWWINDOW);
+            const BOOL ok = SetWindowPos(
+                island_hwnd_, nullptr, 0, 0, width, height, SWP_NOACTIVATE | SWP_NOZORDER | SWP_SHOWWINDOW);
             DebugSink::instance().send(
-                L"UI", L"CandidateWindow::XamlIslandHost resize width=" + std::to_wstring(width) +
-                           L", height=" + std::to_wstring(height) + L", ok=" + std::wstring(ok ? L"TRUE" : L"FALSE"));
+                L"UI", L"CandidateWindow::XamlIslandHost resize width=" + std::to_wstring(width) + L", height=" +
+                           std::to_wstring(height) + L", ok=" + std::wstring(ok ? L"TRUE" : L"FALSE"));
         }
 
         void clear() {
@@ -416,19 +413,19 @@ private:
             }
         }
 
-        void render(const std::vector<std::wstring>& candidates, std::size_t selection_index, std::size_t layout_columns,
-                    std::size_t number_column, bool can_prev_page, bool can_next_page) {
+        void render(const std::vector<std::wstring>& candidates, std::size_t selection_index,
+                    std::size_t layout_columns, std::size_t number_column, bool can_prev_page, bool can_next_page) {
             if (!ready()) {
                 return;
             }
 
             try {
-                xaml_source_.Content(build_root(candidates, selection_index, layout_columns, number_column, can_prev_page,
-                                                can_next_page));
+                xaml_source_.Content(build_root(
+                    candidates, selection_index, layout_columns, number_column, can_prev_page, can_next_page));
             } catch (const winrt::hresult_error& e) {
                 DebugSink::instance().send(
-                    L"UI", L"CandidateWindow::XamlIslandHost render failed hr=" +
-                               std::to_wstring(e.code().value) + L", message=" + std::wstring(e.message().c_str()));
+                    L"UI", L"CandidateWindow::XamlIslandHost render failed hr=" + std::to_wstring(e.code().value) +
+                               L", message=" + std::wstring(e.message().c_str()));
             } catch (...) {
                 DebugSink::instance().send(L"UI", L"CandidateWindow::XamlIslandHost render failed with unknown error");
             }
@@ -465,8 +462,9 @@ private:
         }
 
         static double column_width(std::size_t layout_columns) {
-            return (layout_columns <= 1) ? static_cast<double>(CandidateWindow::popup_width - CandidateWindow::content_padding_x * 2)
-                                         : static_cast<double>(CandidateWindow::expanded_column_width);
+            return (layout_columns <= 1)
+                       ? static_cast<double>(CandidateWindow::popup_width - CandidateWindow::content_padding_x * 2)
+                       : static_cast<double>(CandidateWindow::expanded_column_width);
         }
 
         static double candidate_text_width(std::size_t layout_columns, bool show_number) {
@@ -477,8 +475,8 @@ private:
             return 42.0;
         }
 
-        static winrt::Windows::UI::Xaml::Controls::TextBlock build_text(const std::wstring& text, double font_size,
-                                                                         std::uint8_t r, std::uint8_t g, std::uint8_t b) {
+        static winrt::Windows::UI::Xaml::Controls::TextBlock build_text(
+            const std::wstring& text, double font_size, std::uint8_t r, std::uint8_t g, std::uint8_t b) {
             using namespace winrt::Windows::UI::Text;
             using namespace winrt::Windows::UI::Xaml;
             using namespace winrt::Windows::UI::Xaml::Controls;
@@ -496,9 +494,8 @@ private:
             return block;
         }
 
-        static winrt::Windows::UI::Xaml::UIElement build_candidate_item(std::size_t layout_columns, bool show_number,
-                                                                         bool selected, int row_number,
-                                                                         const std::wstring& value) {
+        static winrt::Windows::UI::Xaml::UIElement build_candidate_item(
+            std::size_t layout_columns, bool show_number, bool selected, int row_number, const std::wstring& value) {
             using namespace winrt::Windows::UI::Text;
             using namespace winrt::Windows::UI::Xaml;
             using namespace winrt::Windows::UI::Xaml::Controls;
@@ -537,9 +534,9 @@ private:
             return host;
         }
 
-        static winrt::Windows::UI::Xaml::UIElement build_column(const std::vector<std::wstring>& candidates,
-                                                                std::size_t layout_columns, std::size_t number_column,
-                                                                std::size_t selection_index, std::size_t column_index) {
+        static winrt::Windows::UI::Xaml::UIElement build_column(
+            const std::vector<std::wstring>& candidates, std::size_t layout_columns, std::size_t number_column,
+            std::size_t selection_index, std::size_t column_index) {
             using namespace winrt::Windows::UI::Xaml;
             using namespace winrt::Windows::UI::Xaml::Controls;
 
@@ -561,7 +558,8 @@ private:
             return column;
         }
 
-        static winrt::Windows::UI::Xaml::UIElement build_footer_icon(const wchar_t* glyph, bool enabled, bool outlined) {
+        static winrt::Windows::UI::Xaml::UIElement build_footer_icon(
+            const wchar_t* glyph, bool enabled, bool outlined) {
             using namespace winrt::Windows::UI::Text;
             using namespace winrt::Windows::UI::Xaml;
             using namespace winrt::Windows::UI::Xaml::Controls;
@@ -582,8 +580,8 @@ private:
             return host;
         }
 
-        static winrt::Windows::UI::Xaml::UIElement build_footer(std::size_t layout_columns, bool can_prev_page,
-                                                                bool can_next_page) {
+        static winrt::Windows::UI::Xaml::UIElement build_footer(
+            std::size_t layout_columns, bool can_prev_page, bool can_next_page) {
             using namespace winrt::Windows::UI::Xaml;
             using namespace winrt::Windows::UI::Xaml::Controls;
 
@@ -598,8 +596,10 @@ private:
             StackPanel left_group;
             left_group.Orientation(Orientation::Horizontal);
             left_group.HorizontalAlignment(HorizontalAlignment::Left);
-            left_group.Children().Append(build_footer_icon(layout_columns <= 1 ? L"\u25B2" : L"\u25C0", can_prev_page, false));
-            left_group.Children().Append(build_footer_icon(layout_columns <= 1 ? L"\u25BC" : L"\u25B6", can_next_page, false));
+            left_group.Children().Append(
+                build_footer_icon(layout_columns <= 1 ? L"\u25B2" : L"\u25C0", can_prev_page, false));
+            left_group.Children().Append(
+                build_footer_icon(layout_columns <= 1 ? L"\u25BC" : L"\u25B6", can_next_page, false));
 
             StackPanel right_group;
             right_group.Orientation(Orientation::Horizontal);
@@ -613,10 +613,9 @@ private:
             return footer;
         }
 
-        static winrt::Windows::UI::Xaml::UIElement build_root(const std::vector<std::wstring>& candidates,
-                                                              std::size_t selection_index, std::size_t layout_columns,
-                                                              std::size_t number_column, bool can_prev_page,
-                                                              bool can_next_page) {
+        static winrt::Windows::UI::Xaml::UIElement build_root(
+            const std::vector<std::wstring>& candidates, std::size_t selection_index, std::size_t layout_columns,
+            std::size_t number_column, bool can_prev_page, bool can_next_page) {
             using namespace winrt::Windows::UI::Xaml;
             using namespace winrt::Windows::UI::Xaml::Controls;
 
@@ -631,12 +630,12 @@ private:
 
             StackPanel columns;
             columns.Orientation(Orientation::Horizontal);
-            columns.Margin(
-                Thickness{static_cast<double>(CandidateWindow::content_padding_x),
-                          static_cast<double>(CandidateWindow::content_padding_y),
-                          static_cast<double>(CandidateWindow::content_padding_x), 0.0});
+            columns.Margin(Thickness{static_cast<double>(CandidateWindow::content_padding_x),
+                                     static_cast<double>(CandidateWindow::content_padding_y),
+                                     static_cast<double>(CandidateWindow::content_padding_x), 0.0});
 
-            const std::size_t visible_columns = std::max<std::size_t>(1, std::min(layout_columns, CandidateWindow::max_layout_columns));
+            const std::size_t visible_columns =
+                std::max<std::size_t>(1, std::min(layout_columns, CandidateWindow::max_layout_columns));
             for (std::size_t column_index = 0; column_index < visible_columns; ++column_index) {
                 columns.Children().Append(
                     build_column(candidates, visible_columns, number_column, selection_index, column_index));
@@ -649,10 +648,9 @@ private:
         }
 
     private:
-        static winrt::Windows::UI::Xaml::Media::SolidColorBrush brush(std::uint8_t r, std::uint8_t g, std::uint8_t b,
-                                                                      std::uint8_t a) {
-            return winrt::Windows::UI::Xaml::Media::SolidColorBrush(
-                winrt::Windows::UI::Color{a, r, g, b});
+        static winrt::Windows::UI::Xaml::Media::SolidColorBrush brush(
+            std::uint8_t r, std::uint8_t g, std::uint8_t b, std::uint8_t a) {
+            return winrt::Windows::UI::Xaml::Media::SolidColorBrush(winrt::Windows::UI::Color{a, r, g, b});
         }
 
     private:
@@ -696,7 +694,8 @@ private:
             return;
         }
 
-        xaml_island_.render(candidates_, selection_index_, layout_columns_, number_column_, can_prev_page_, can_next_page_);
+        xaml_island_.render(
+            candidates_, selection_index_, layout_columns_, number_column_, can_prev_page_, can_next_page_);
     }
 
     void clear_surface() {

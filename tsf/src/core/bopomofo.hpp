@@ -2,7 +2,11 @@
 
 #include <windows.h>
 
+#include <filesystem>
+#include <fstream>
 #include <optional>
+#include <source_location>
+#include <string>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -52,7 +56,7 @@ private:
     static constexpr int VK_Y = 0x59;
     static constexpr int VK_Z = 0x5A;
 
-    inline static const std::unordered_map<int, wchar_t> vkToBopomofo{{
+    inline static const std::unordered_map<int, char16_t> vkToBopomofo{{
         // Standard Zhuyin keyboard layout.
         {VK_1, L'ㄅ'},
         {VK_2, L'ㄉ'},
@@ -104,53 +108,55 @@ private:
     }};
 
 public:
-    static std::optional<wchar_t> lookup(int vk) {
+    inline static const std::unordered_set<char16_t> initial{
+        u'ㄅ', u'ㄆ', u'ㄇ', u'ㄈ', u'ㄉ', u'ㄊ', u'ㄋ', u'ㄌ', u'ㄍ', u'ㄎ', u'ㄏ',
+        u'ㄐ', u'ㄑ', u'ㄒ', u'ㄓ', u'ㄔ', u'ㄕ', u'ㄖ', u'ㄗ', u'ㄘ', u'ㄙ'};
+    inline static const std::unordered_set<char16_t> medial{u'ㄧ', u'ㄨ', u'ㄩ'};
+    inline static const std::unordered_set<char16_t> final{
+        u'ㄚ', u'ㄛ', u'ㄜ', u'ㄝ', u'ㄞ', u'ㄟ', u'ㄠ', u'ㄡ', u'ㄢ', u'ㄣ', u'ㄤ', u'ㄥ', u'ㄦ'};
+    inline static const std::unordered_set<char16_t> tone{u' ', u'ˊ', u'ˇ', u'ˋ', u'˙'};
+
+    static std::optional<char16_t> lookup(int vk) {
         const auto it = vkToBopomofo.find(vk);
         if (it == vkToBopomofo.end()) return std::nullopt;
         return it->second;
     }
 };
 
-class WordMappingEngine {
-    // std::wstring 實際上代表一個漢字 為了多碼點字(BMP外)
-    std::unordered_map<std::wstring, std::vector<std::wstring>> mapping;
-    std::unordered_set<std::wstring> word_set;
+class HanziMapEngine {
+    std::unordered_map<std::u16string, std::vector<char32_t>> mapping;
+    std::unordered_set<char32_t> hanzi_set;
 
 public:
-    static WordMappingEngine& instance() {
-        static WordMappingEngine engine;
+    static HanziMapEngine& instance() {
+        static HanziMapEngine engine;
         return engine;
     }
-    std::wstring lookup_first(const std::wstring& bopomofo) {
-        if (mapping.contains(bopomofo) && !mapping[bopomofo].empty()) {
+    char32_t lookup_first(const std::u16string& bopomofo) {
+        if (mapping.contains(bopomofo)) {
+            if (mapping[bopomofo].size() == 0) {
+                throw std::logic_error("table error");
+            }
             return mapping[bopomofo][0];
         } else {
             // temporary fallback
-            DebugSink::instance().send(L"MSG", bopomofo);
-            return L"找不到";
+            return L'N';
         }
     }
-    std::vector<std::wstring> lookup_all(const std::wstring& bopomofo) {
+    std::vector<char32_t>* lookup_all(const std::u16string& bopomofo) {
         if (mapping.contains(bopomofo)) {
-            return mapping[bopomofo];
-        } else {
-            // temporary fallback
-            DebugSink::instance().send(L"MSG", bopomofo);
-            return {L"找不到"};
+            return &mapping[bopomofo];
         }
+        return nullptr;
     }
 
     // 檢查是否存在某漢字
-    bool contains(const std::wstring& word) {
-        return word_set.contains(word);
+    bool contains(char32_t word) {
+        return hanzi_set.contains(word);
     }
 
-    bool contains(const wchar_t& word) {
-        return word_set.contains(std::wstring{word});
-    }
-
-    const std::unordered_set<std::wstring>& get_word_set() {
-        return word_set;
+    const std::unordered_set<char32_t>& get_word_set() {
+        return hanzi_set;
     }
 
 private:
@@ -169,22 +175,20 @@ private:
         return mapping_file;
     }
 
-    WordMappingEngine() {
+    HanziMapEngine() {
         std::filesystem::path mapping_file = resolve_mapping_file();
         std::ifstream ifs(mapping_file.string());
         jsoncons::json j = jsoncons::json::parse(ifs);
         auto temp = j.as<std::unordered_map<std::string, std::vector<std::string>>>();
         for (auto& [k, v] : temp) {
-            auto u16key = utf8::utf8to16(k);
-            std::wstring wkey(u16key.begin(), u16key.end());
-            std::vector<std::wstring> wvec;
+            auto key = utf8::utf8to16(k);
+            std::vector<char32_t> wvec;
             for (const auto& item : v) {
-                auto u16item = utf8::utf8to16(item);
-                std::wstring witem(u16item.begin(), u16item.end());
-                wvec.push_back(witem);
-                word_set.insert(witem);
+                char32_t hanzi = utf8::utf8to32(item)[0];
+                wvec.push_back(hanzi);
+                hanzi_set.insert(hanzi);
             }
-            mapping[wkey] = std::move(wvec);
+            mapping[key] = std::move(wvec);
         }
     }
 };

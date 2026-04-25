@@ -9,7 +9,7 @@
 #include <variant>
 #include <vector>
 
-#include "core/bopomofoBuffer.hpp"
+#include "core/buffer.hpp"
 
 namespace tsf {
 
@@ -65,18 +65,17 @@ private:
 
     HRESULT start_composition(ITfContext* pContext);
     HRESULT end_composition(ITfContext* pContext);
-    HRESULT set_composition_text(ITfContext* pContext, const std::wstring& text);
+    HRESULT set_composition_text(ITfContext* pContext, const std::u16string& text);
     void refresh_composition_after_candidate_finalize(ITfContext* pContext);
     void show_candidate_list_for_current_input(ITfContext* pContext, bool expand);
-    void show_candidate_list(std::variant<Word, CompositionUnit>& pos, const std::vector<std::wstring>& candidates,
-                             ITfContext* pContext);
+    void show_candidate_list(BopomofoPos& pos, ITfContext* pContext);
 
     winrt::com_ptr<ITfThreadMgr> threadMgr;
     TfClientId _tfClientId = TF_CLIENTID_NULL;
     DWORD dwThreadMgrEventSinkCookie = TF_INVALID_COOKIE;
     winrt::com_ptr<ITfComposition> itfComposition;
     std::unique_ptr<CandidateUiController> candidate_ui_;
-    BopomofoBuffer compositionBuffer;
+    CompositionBuffer compositionBuffer;
 };
 
 };  // namespace tsf

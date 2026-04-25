@@ -1,9 +1,12 @@
-#pragma once
+﻿#pragma once
 
 #include <winsock2.h>
 #include <ws2tcpip.h>
 
+#include <iterator>
 #include <string>
+
+#include "utf8cpp/utf8/cpp20.h"
 
 class DebugSink {
 public:
@@ -44,7 +47,8 @@ public:
 
         in_addr loopbackIf{};
         if (inet_pton(AF_INET, "127.0.0.1", &loopbackIf) == 1) {
-            setsockopt(sock, IPPROTO_IP, IP_MULTICAST_IF, reinterpret_cast<const char*>(&loopbackIf), sizeof(loopbackIf));
+            setsockopt(
+                sock, IPPROTO_IP, IP_MULTICAST_IF, reinterpret_cast<const char*>(&loopbackIf), sizeof(loopbackIf));
         }
 
         _sock = sock;
@@ -63,34 +67,52 @@ public:
     }
 
     // Send one line in the format "[TAG] TEXT\n" (UTF-8).
+    inline void send(const wchar_t* tag, const std::string& text) {
+        sendUtf8(toUtf8(tag), toUtf8(text));
+    }
+
     inline void send(const wchar_t* tag, const std::wstring& text) {
-        if (_sock == INVALID_SOCKET) {
-            connect();
-            if (_sock == INVALID_SOCKET) return;
-        }
+        sendUtf8(toUtf8(tag), toUtf8(text));
+    }
 
-        std::string msg = "[";
-        msg += toUtf8(tag);
-        msg += "] ";
-        msg += toUtf8(text);
-        msg += "\n";
+    inline void send(const wchar_t* tag, const std::u16string& text) {
+        sendUtf8(toUtf8(tag), toUtf8(text));
+    }
 
-        const int sent = ::sendto(
-            _sock,
-            msg.data(),
-            static_cast<int>(msg.size()),
-            0,
-            reinterpret_cast<const sockaddr*>(&_dest),
-            static_cast<int>(sizeof(_dest)));
+    inline void send(const wchar_t* tag, const std::u32string& text) {
+        sendUtf8(toUtf8(tag), toUtf8(text));
+    }
 
-        if (sent == SOCKET_ERROR) {
-            ::closesocket(_sock);
-            _sock = INVALID_SOCKET;
-        }
+    inline void send(const wchar_t* tag, const char* text) {
+        send(tag, std::string(text != nullptr ? text : ""));
+    }
+
+    inline void send(const wchar_t* tag, const wchar_t* text) {
+        send(tag, std::wstring(text != nullptr ? text : L""));
+    }
+
+    inline void send(const wchar_t* tag, const char16_t* text) {
+        send(tag, std::u16string(text != nullptr ? text : u""));
+    }
+
+    inline void send(const wchar_t* tag, const char32_t* text) {
+        send(tag, std::u32string(text != nullptr ? text : U""));
+    }
+
+    inline void send(const wchar_t* tag, char ch) {
+        send(tag, std::string(1, ch));
     }
 
     inline void send(const wchar_t* tag, wchar_t ch) {
         send(tag, std::wstring(1, ch));
+    }
+
+    inline void send(const wchar_t* tag, char16_t ch) {
+        send(tag, std::u16string(1, ch));
+    }
+
+    inline void send(const wchar_t* tag, char32_t ch) {
+        send(tag, std::u32string(1, ch));
     }
 
     bool isConnected() const {
@@ -110,13 +132,71 @@ private:
     SOCKET _sock = INVALID_SOCKET;
     sockaddr_in _dest{};
 
-    static std::string toUtf8(const std::wstring& ws) {
-        if (ws.empty()) return {};
-        int len =
-            WideCharToMultiByte(CP_UTF8, 0, ws.c_str(), static_cast<int>(ws.size()), nullptr, 0, nullptr, nullptr);
-        if (len <= 0) return {};
-        std::string out(static_cast<size_t>(len), '\0');
-        WideCharToMultiByte(CP_UTF8, 0, ws.c_str(), static_cast<int>(ws.size()), out.data(), len, nullptr, nullptr);
-        return out;
+    inline void sendUtf8(const std::string& tag, const std::string& text) {
+        if (_sock == INVALID_SOCKET) {
+            connect();
+            if (_sock == INVALID_SOCKET) return;
+        }
+
+        std::string msg;
+        msg.reserve(tag.size() + text.size() + 4);
+        msg += "[";
+        msg += tag;
+        msg += "] ";
+        msg += text;
+        msg += "\n";
+
+        const int sent = ::sendto(_sock, msg.data(), static_cast<int>(msg.size()), 0,
+                                  reinterpret_cast<const sockaddr*>(&_dest), static_cast<int>(sizeof(_dest)));
+
+        if (sent == SOCKET_ERROR) {
+            ::closesocket(_sock);
+            _sock = INVALID_SOCKET;
+        }
+    }
+
+    static std::string toUtf8(const wchar_t* text) {
+        return text != nullptr ? toUtf8(std::wstring(text)) : std::string{};
+    }
+
+    static std::string toUtf8(const std::string& text) {
+        std::string result;
+        utf8::replace_invalid(text.begin(), text.end(), std::back_inserter(result));
+        return result;
+    }
+
+    static std::string toUtf8(const std::wstring& text) {
+        static_assert(sizeof(wchar_t) == sizeof(char16_t), "This Windows build expects UTF-16 wchar_t");
+        return fromUtf16(text.begin(), text.end());
+    }
+
+    static std::string toUtf8(const std::u16string& text) {
+        return fromUtf16(text.begin(), text.end());
+    }
+
+    static std::string toUtf8(const std::u32string& text) {
+        return fromUtf32(text.begin(), text.end());
+    }
+
+    template <typename Iterator>
+    static std::string fromUtf16(Iterator first, Iterator last) {
+        std::string result;
+        try {
+            utf8::utf16to8(first, last, std::back_inserter(result));
+        } catch (const utf8::exception&) {
+            result.clear();
+        }
+        return result;
+    }
+
+    template <typename Iterator>
+    static std::string fromUtf32(Iterator first, Iterator last) {
+        std::string result;
+        try {
+            utf8::utf32to8(first, last, std::back_inserter(result));
+        } catch (const utf8::exception&) {
+            result.clear();
+        }
+        return result;
     }
 };

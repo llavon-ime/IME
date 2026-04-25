@@ -48,11 +48,10 @@ public:
 
     bool create(DWORD exStyle, DWORD style, std::wstring_view title, int x, int y, int width, int height,
                 HWND parent = nullptr, HMENU menu = nullptr) {
-        log_state(
-            L"create", L"request exStyle=" + std::to_wstring(exStyle) + L", style=" + std::to_wstring(style) +
-                           L", x=" + std::to_wstring(x) + L", y=" + std::to_wstring(y) +
-                           L", w=" + std::to_wstring(width) + L", h=" + std::to_wstring(height) +
-                           L", parent=" + ptr_to_string(parent));
+        log_state(L"create",
+                  L"request exStyle=" + std::to_wstring(exStyle) + L", style=" + std::to_wstring(style) + L", x=" +
+                      std::to_wstring(x) + L", y=" + std::to_wstring(y) + L", w=" + std::to_wstring(width) + L", h=" +
+                      std::to_wstring(height) + L", parent=" + ptr_to_string(parent));
         if (hwnd_) {
             log_state(L"create", L"already created");
             return true;
@@ -62,9 +61,8 @@ public:
             return false;
         }
 
-        hwnd_ = CreateWindowExW(
-            exStyle, class_name(), title.empty() ? nullptr : title.data(), style, x, y, width, height, parent, menu,
-            module_instance(), this);
+        hwnd_ = CreateWindowExW(exStyle, class_name(), title.empty() ? nullptr : title.data(), style, x, y, width,
+                                height, parent, menu, module_instance(), this);
 
         if (!hwnd_) {
             log_state(L"create", L"CreateWindowExW failed, GetLastError=" + std::to_wstring(GetLastError()));
@@ -82,9 +80,8 @@ public:
         hwnd_ = nullptr;
         log_state(L"destroy", L"DestroyWindow target=" + ptr_to_string(toDestroy));
         const BOOL ok = DestroyWindow(toDestroy);
-        log_state(
-            L"destroy", L"DestroyWindow result=" + std::wstring(ok ? L"TRUE" : L"FALSE") +
-                            L", GetLastError=" + std::to_wstring(GetLastError()));
+        log_state(L"destroy", L"DestroyWindow result=" + std::wstring(ok ? L"TRUE" : L"FALSE") + L", GetLastError=" +
+                                  std::to_wstring(GetLastError()));
     }
 
     void show(int command = SW_SHOWNOACTIVATE) const noexcept {
@@ -111,10 +108,9 @@ public:
             return;
         }
         const BOOL ok = InvalidateRect(hwnd_, nullptr, erase);
-        log_state(
-            L"invalidate", L"InvalidateRect erase=" + std::wstring(erase ? L"TRUE" : L"FALSE") +
-                               L", ok=" + std::wstring(ok ? L"TRUE" : L"FALSE") +
-                               L", GetLastError=" + std::to_wstring(GetLastError()));
+        log_state(L"invalidate",
+                  L"InvalidateRect erase=" + std::wstring(erase ? L"TRUE" : L"FALSE") + L", ok=" +
+                      std::wstring(ok ? L"TRUE" : L"FALSE") + L", GetLastError=" + std::to_wstring(GetLastError()));
     }
 
     void set_window_pos(HWND insertAfter, int x, int y, int width, int height, UINT flags) const noexcept {
@@ -123,12 +119,11 @@ public:
             return;
         }
         const BOOL ok = SetWindowPos(hwnd_, insertAfter, x, y, width, height, flags);
-        log_state(
-            L"set_window_pos", L"insertAfter=" + ptr_to_string(insertAfter) + L", x=" + std::to_wstring(x) +
-                                   L", y=" + std::to_wstring(y) + L", w=" + std::to_wstring(width) +
-                                   L", h=" + std::to_wstring(height) + L", flags=" + std::to_wstring(flags) +
-                                   L", ok=" + std::wstring(ok ? L"TRUE" : L"FALSE") +
-                                   L", GetLastError=" + std::to_wstring(GetLastError()));
+        log_state(L"set_window_pos",
+                  L"insertAfter=" + ptr_to_string(insertAfter) + L", x=" + std::to_wstring(x) + L", y=" +
+                      std::to_wstring(y) + L", w=" + std::to_wstring(width) + L", h=" + std::to_wstring(height) +
+                      L", flags=" + std::to_wstring(flags) + L", ok=" + std::wstring(ok ? L"TRUE" : L"FALSE") +
+                      L", GetLastError=" + std::to_wstring(GetLastError()));
     }
 
     void move(int x, int y, int width, int height, bool repaint = true) const noexcept {
@@ -138,11 +133,10 @@ public:
         }
         const BOOL ok = MoveWindow(hwnd_, x, y, width, height, repaint ? TRUE : FALSE);
         log_state(
-            L"move", L"x=" + std::to_wstring(x) + L", y=" + std::to_wstring(y) + L", w=" + std::to_wstring(width) +
-                          L", h=" + std::to_wstring(height) +
-                          L", repaint=" + std::wstring(repaint ? L"TRUE" : L"FALSE") +
-                          L", ok=" + std::wstring(ok ? L"TRUE" : L"FALSE") +
-                          L", GetLastError=" + std::to_wstring(GetLastError()));
+            L"move",
+            L"x=" + std::to_wstring(x) + L", y=" + std::to_wstring(y) + L", w=" + std::to_wstring(width) + L", h=" +
+                std::to_wstring(height) + L", repaint=" + std::wstring(repaint ? L"TRUE" : L"FALSE") + L", ok=" +
+                std::wstring(ok ? L"TRUE" : L"FALSE") + L", GetLastError=" + std::to_wstring(GetLastError()));
     }
 
 protected:
@@ -178,9 +172,8 @@ private:
     }
 
     void log_state(const wchar_t* stage, const std::wstring& details) const {
-        DebugSink::instance().send(
-            L"UI", L"Window::" + std::wstring(stage) + L", this=" + ptr_to_string(this) +
-                      L", hwnd=" + ptr_to_string(hwnd_) + L", " + details);
+        DebugSink::instance().send(L"UI", L"Window::" + std::wstring(stage) + L", this=" + ptr_to_string(this) +
+                                              L", hwnd=" + ptr_to_string(hwnd_) + L", " + details);
     }
 
     [[nodiscard]] bool register_class() const noexcept {
@@ -205,10 +198,8 @@ private:
 
         const ATOM atom = RegisterClassExW(&wc);
         if (atom == 0 && GetLastError() != ERROR_CLASS_ALREADY_EXISTS) {
-            log_state(
-                L"register_class",
-                L"RegisterClassExW failed for " + std::wstring(class_name()) +
-                    L", GetLastError=" + std::to_wstring(GetLastError()));
+            log_state(L"register_class", L"RegisterClassExW failed for " + std::wstring(class_name()) +
+                                             L", GetLastError=" + std::to_wstring(GetLastError()));
             return false;
         }
         log_state(L"register_class", L"RegisterClassExW success for " + std::wstring(class_name()));
@@ -243,11 +234,10 @@ private:
             return DefWindowProcW(hwnd, message, wParam, lParam);
         }
 
-        if (message == WM_SHOWWINDOW || message == WM_WINDOWPOSCHANGED || message == WM_ACTIVATE || message == WM_SIZE ||
-            message == WM_PAINT) {
-            self->log_state(
-                L"window_proc", L"message=" + std::to_wstring(message) + L", wParam=" + std::to_wstring(wParam) +
-                                    L", lParam=" + std::to_wstring(lParam));
+        if (message == WM_SHOWWINDOW || message == WM_WINDOWPOSCHANGED || message == WM_ACTIVATE ||
+            message == WM_SIZE || message == WM_PAINT) {
+            self->log_state(L"window_proc", L"message=" + std::to_wstring(message) + L", wParam=" +
+                                                std::to_wstring(wParam) + L", lParam=" + std::to_wstring(lParam));
         }
 
         const LRESULT result = self->handle_message(message, wParam, lParam);

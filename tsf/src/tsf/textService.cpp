@@ -8,8 +8,7 @@
 #include "utils/debugSink.hpp"
 #include "utils/healper.hpp"
 
-// #include "core/bopomofo.h"
-// #include "debugSink.h"
+using namespace std::literals;
 
 namespace {
 
@@ -265,6 +264,7 @@ HRESULT TextService::activate(ITfThreadMgr* pThreadMgr, TfClientId tfClientId) {
 
     DebugSink::instance().connect();
     DebugSink::instance().send(L"IME", L"Activated");
+    ModeleManager::initialize();
 
     return S_OK;
 }
@@ -372,7 +372,7 @@ STDMETHODIMP TextService::OnTestKeyDown(ITfContext* /*pContext*/, WPARAM wParam,
     if (candidate_ui_->is_active()) {
         *pfEaten = candidate_ui_->can_handle_key(wParam) ? TRUE : FALSE;
         DebugSink::instance().send(
-            L"EVENT", L"OnTestKeyDown candidate mode, eaten=" + std::wstring(*pfEaten ? L"TRUE" : L"FALSE"));
+            L"EVENT", L"OnTestKeyDown candidate mode, eaten="s + (*pfEaten ? L"TRUE" : L"FALSE"));
         return S_OK;
     }
 
@@ -439,14 +439,14 @@ STDMETHODIMP TextService::OnKeyDown(ITfContext* pContext, WPARAM wParam, LPARAM 
     if (wParam == VK_ESCAPE && itfComposition) {
         DebugSink::instance().send(L"CANCEL", compositionBuffer.to_string());
         compositionBuffer.clear();
-        set_composition_text(pContext, L"");
+        set_composition_text(pContext, L""_u16);
         end_composition(pContext);
         *pfEaten = TRUE;
         return S_OK;
     }
 
     if (wParam == VK_BACK && !compositionBuffer.empty()) {
-        compositionBuffer.pop_back();
+        compositionBuffer.remove_cur();
         if (compositionBuffer.empty()) {
             end_composition(pContext);
         } else {
@@ -623,7 +623,7 @@ HRESULT TextService::end_composition(ITfContext* pContext) {
  *
  * Applies the visible composition string to the current TSF context.
  */
-HRESULT TextService::set_composition_text(ITfContext* pContext, const std::wstring& text) {
+HRESULT TextService::set_composition_text(ITfContext* pContext, const std::u16string& text) {
     if (!pContext) return E_INVALIDARG;
 
     winrt::com_ptr<ITfContextComposition> contextComposition;
@@ -646,7 +646,7 @@ HRESULT TextService::set_composition_text(ITfContext* pContext, const std::wstri
 
         range = nullptr;
         itfComposition->GetRange(range.put()) | win::check();
-        range->SetText(ec, 0, text.data(), ULONG(text.size())) | win::check();
+        range->SetText(ec, 0, convu16(text.data()), ULONG(text.size())) | win::check();
 
         apply_composition_display_attribute(pContext, ec, range.get()) | win::check();
 
@@ -670,7 +670,7 @@ void TextService::refresh_composition_after_candidate_finalize(ITfContext* pCont
     }
 
     DebugSink::instance().send(
-        L"INFO", L"refresh_composition_after_candidate_finalize text=" + compositionBuffer.to_string());
+        L"INFO", L"refresh_composition_after_candidate_finalize text="_u16 + compositionBuffer.to_string());
     set_composition_text(pContext, compositionBuffer.to_string());
 }
 
@@ -679,20 +679,8 @@ void TextService::show_candidate_list_for_current_input(ITfContext* pContext, bo
         return;
     }
 
-    auto& target = compositionBuffer.back();
-    std::vector<std::wstring> candidates = WordMappingEngine::instance().lookup_all(std::get<Word>(target).bopomofo);
-    if (std::holds_alternative<Word>(target)) {
-        candidates = WordMappingEngine::instance().lookup_all(std::get<Word>(target).bopomofo);
-        // show_candidate_list(
-        //     target, WordMappingEngine::instance().lookup_all(std::get<Word>(target).bopomofo), pContext);
-    } else {
-        candidates = WordMappingEngine::instance().lookup_all(std::get<CompositionUnit>(target).get_bopomofo());
-        // show_candidate_list(
-        //     target, WordMappingEngine::instance().lookup_all(std::get<CompositionUnit>(target).get_bopomofo()),
-        //     pContext);
-    }
-    candidates = Engine::instance().predict_next(candidates);
-    show_candidate_list(target, candidates, pContext);
+    auto& target = compositionBuffer.cur();
+    show_candidate_list(target, pContext);
     if (expand) {
         candidate_ui_->expand();
     }
@@ -701,15 +689,23 @@ void TextService::show_candidate_list_for_current_input(ITfContext* pContext, bo
 /**
  * @brief Displays the candidate list UI with the given candidates.
  */
-void TextService::show_candidate_list(std::variant<Word, CompositionUnit>& pos,
-                                      const std::vector<std::wstring>& candidates, ITfContext* pContext) {
-    candidate_ui_->show(pContext, candidates, [&pos](std::wstring word) {
-        if (std::holds_alternative<Word>(pos)) {
-            auto& w = std::get<Word>(pos);
-            w.word = word;
-        } else {
-            auto& v = std::get<CompositionUnit>(pos);
-            pos = Word(word, v.get_bopomofo());
+void TextService::show_candidate_list(BopomofoPos& bopomofoPos, ITfContext* pContext) {
+    // TODO
+    std::shared_ptr<std::vector<std::wstring>> candidate_ptr = std::make_shared<std::vector<std::wstring>>();
+    for (auto candi : bopomofoPos.get_candidates()) {
+        std::u16string str;
+        utf8::append16(candi, str);
+        std::wstring wstr(str.begin(), str.end());
+        candidate_ptr->push_back(wstr);
+    }
+
+    candidate_ui_->show(pContext, *candidate_ptr, [&bopomofoPos, candidate_ptr](std::wstring word) {
+        auto& candidate = *candidate_ptr;
+        for (int i = 0; i < candidate.size(); i++) {
+            if (word == candidate[i]) {
+                bopomofoPos.set_choose_index(i);
+                return;
+            }
         }
     });
 }

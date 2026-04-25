@@ -14,13 +14,15 @@ for p in temp.glob("*.dll"):
     except OSError:
         pass
 
-current = sorted(str(p.relative_to(root)).replace("\\", "/") for p in src.rglob("*") if p.is_file())
-previous = manifest.read_text(encoding="utf-8").splitlines() if manifest.exists() else []
+build_dir = root / "build" / "x64-release"
 
-if set(current) != set(previous):
+current = sorted(str(p.relative_to(root)).replace("\\", "/") for p in src.rglob("*") if p.is_file())
+
+previous = manifest.read_text(encoding="utf-8").splitlines() if manifest.exists() else []
+if set(current) != set(previous) or not build_dir.is_dir():
     subprocess.run(["cmake", "--preset", "x64-release"], cwd=root, check=True)
 
-dll = root / "build" / "x64-release" / "tsf" / "Release" / "MyIME.dll"
+dll = build_dir / "tsf" / "Release" / "MyIME.dll"
 if dll.exists():
     t = datetime.now().strftime("%Y%m%d_%H%M%S")
     bak = temp / f"MyIME_{t}.dll"

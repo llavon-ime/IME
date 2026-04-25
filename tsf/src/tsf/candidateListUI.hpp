@@ -184,9 +184,8 @@ public:
     void set_anchor_point(const POINT& pt) {
         anchor_point = pt;
         has_anchor_point = true;
-        DebugSink::instance().send(
-            L"INFO", L"CandidateListUIElement::set_anchor_point (" + std::to_wstring(pt.x) + L"," +
-                          std::to_wstring(pt.y) + L")");
+        DebugSink::instance().send(L"INFO", L"CandidateListUIElement::set_anchor_point (" + std::to_wstring(pt.x) +
+                                                L"," + std::to_wstring(pt.y) + L")");
     }
 
     void clear_anchor_point() {
@@ -406,8 +405,7 @@ private:
         }
 
         const UINT begin = start_page * page_size;
-        const UINT end =
-            std::min((start_page + visible_pages) * page_size, static_cast<UINT>(candidates.size()));
+        const UINT end = std::min((start_page + visible_pages) * page_size, static_cast<UINT>(candidates.size()));
 
         std::vector<std::wstring> page_items;
         page_items.reserve(end - begin);

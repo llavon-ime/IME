@@ -1,5 +1,5 @@
-file(GLOB_RECURSE HEADERS "src/*.h" "src/*.hpp")
-file(GLOB_RECURSE SOURCES "src/*.cpp")
+file(GLOB_RECURSE HEADERS CONFIGURE_DEPENDS "src/*.h" "src/*.hpp")
+file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS "src/*.cpp")
 set(DEF_FILE "${CMAKE_CURRENT_SOURCE_DIR}/ime.def")
 
 include_directories(src)
