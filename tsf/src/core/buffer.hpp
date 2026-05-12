@@ -7,86 +7,6 @@ using namespace std::literals;
 
 namespace tsf {
 
-struct BopomofoPos {
-    char16_t initial = 0, medial = 0, final = 0;
-    char16_t tone = 0;
-    int choose_index = 0;
-
-    bool compositable = false;
-    std::vector<char32_t> candidates;
-
-    // TODO temp
-    std::optional<std::vector<char32_t>> predicted_candidate;
-    bool accept(char16_t c) {
-        if (is_compositable()) {
-            return false;
-        }
-        if (Bopomofo::initial.contains(c)) {
-            initial = c;
-        } else if (Bopomofo::medial.contains(c)) {
-            medial = c;
-        } else if (Bopomofo::final.contains(c)) {
-            final = c;
-        } else if (Bopomofo::tone.contains(c)) {
-            tone = c;
-            std::vector<char32_t>* candi = HanziMapEngine::instance().lookup_all(to_bopomofo_string());
-            if (candi == nullptr) {
-                return false;
-            }
-            compositable = true;
-            candidates = *candi;
-        }
-        return true;
-    }
-    std::u16string current() const {
-        if (!is_compositable()) {
-            return to_bopomofo_string();
-        }
-        char32_t c = candidates.at(choose_index);
-        std::u16string s;
-        utf8::append16(c, s);
-        return s;
-    }
-    void engine_choose(const std::u16string& context) {
-        DebugSink::instance().send(L"INFO", u"engine choose CTX: " + context);
-        if (!is_compositable()) {
-            DebugSink::instance().send(L"ERROR", L"No candidates to choose from");
-            throw std::runtime_error("No candidates to choose from");
-        }
-        // TODO temp
-        EngineContext engine;
-        engine.add_str(context);
-        predicted_candidate = engine.predict_next(candidates);
-        candidates = engine.predict_next(candidates);
-        choose_index = 0;
-    }
-
-public:
-    std::u16string to_bopomofo_string() const {
-        std::u16string res;
-        if (initial) res.push_back(initial);
-        if (medial) res.push_back(medial);
-        if (final) res.push_back(final);
-        if (tone) res.push_back(tone);
-        return res;
-    }
-    bool is_null() const {
-        return initial == 0 && medial == 0 && final == 0 && tone == 0;
-    }
-    bool is_compositable() const {
-        return compositable;
-    }
-    void set_choose_index(int idx) {
-        choose_index = idx;
-    }
-    const std::vector<char32_t>& get_candidates() const {
-        if (!is_compositable()) {
-            throw std::runtime_error("No candidates available");
-        }
-        return candidates;
-    }
-};
-
 class Buffer {
 protected:
     std::vector<BopomofoPos> buffer;
@@ -109,6 +29,7 @@ public:
 
 class CompositionBuffer {
     std::vector<BopomofoPos> buffer;
+    std::mutex mutex;
     int idx = -1;
 
 public:
@@ -140,6 +61,7 @@ public:
         return buffer.empty();
     }
     void add(char16_t ch) {
+        std::lock_guard lock(mutex);
         DebugSink::instance().send(L"INFO", ch);
         if (idx == -1 || !buffer[idx].accept(ch)) {
             idx++;
@@ -155,7 +77,8 @@ public:
                     ctx += buffer[i].current();
                 }
                 DebugSink::instance().send(L"INFO", u"CONTEXT : " + ctx);
-                buffer[idx].engine_choose(ctx);
+                auto engine = get_engine();
+                engine->predict(u"", std::span<BopomofoPos>(buffer.begin(), buffer.begin() + idx + 1));
             }
         }
     }

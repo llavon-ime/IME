@@ -193,4 +193,81 @@ private:
     }
 };
 
+struct BopomofoPos {
+    char16_t initial = 0, medial = 0, final = 0;
+    char16_t tone = 0;
+    int choose_index = 0;
+    bool chosen = false;  // user 手動選擇
+    bool compositable = false;
+    std::vector<char32_t> candidates;
+
+    // TODO temp
+    std::optional<std::vector<char32_t>> predicted_candidate;
+    bool accept(char16_t c) {
+        if (is_compositable()) {
+            return false;
+        }
+        if (Bopomofo::initial.contains(c)) {
+            initial = c;
+        } else if (Bopomofo::medial.contains(c)) {
+            medial = c;
+        } else if (Bopomofo::final.contains(c)) {
+            final = c;
+        } else if (Bopomofo::tone.contains(c)) {
+            tone = c;
+            std::vector<char32_t>* candi = HanziMapEngine::instance().lookup_all(to_bopomofo_string());
+            if (candi == nullptr) {
+                return false;
+            }
+            compositable = true;
+            candidates = *candi;
+        }
+        return true;
+    }
+    std::u16string current() const {
+        if (!is_compositable()) {
+            return to_bopomofo_string();
+        }
+        char32_t c = candidates.at(choose_index);
+        std::u16string s;
+        utf8::append16(c, s);
+        return s;
+    }
+    char32_t current32() const {
+        if (!is_compositable()) {
+            throw std::logic_error("not compositable");
+        }
+        char32_t c = candidates.at(choose_index);
+        return c;
+    }
+
+public:
+    std::u16string to_bopomofo_string() const {
+        std::u16string res;
+        if (initial) res.push_back(initial);
+        if (medial) res.push_back(medial);
+        if (final) res.push_back(final);
+        if (tone) res.push_back(tone);
+        return res;
+    }
+    bool is_null() const {
+        return initial == 0 && medial == 0 && final == 0 && tone == 0;
+    }
+    bool is_compositable() const {
+        return compositable;
+    }
+    void set_choose_index(int idx) {
+        choose_index = idx;
+    }
+    const std::vector<char32_t>& get_candidates() const {
+        if (!is_compositable()) {
+            throw std::runtime_error("No candidates available");
+        }
+        return candidates;
+    }
+    const void set_candaiates(const std::vector<char32_t>& nc) {
+        candidates = nc;
+    }
+};
+
 }  // namespace tsf

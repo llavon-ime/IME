@@ -2,7 +2,8 @@
   "dependencies": [
     "cppwinrt",
     "jsoncons",
+    "llama-cpp",
     "utfcpp",
-    "llama-cpp"
+    "onnxruntime"
   ]
 }

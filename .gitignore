@@ -32,6 +32,10 @@ vcpkg_installed/
 .dataset/
 .temp/
 .tool/
-models/
+models/*
+
+# release models
+!models/model-Q4_K_M.gguf
+
 
 
