@@ -33,9 +33,14 @@ vcpkg_installed/
 .temp/
 .tool/
 models/*
+hf_model_card/*
+python_probe/*
 
 # release models
-!models/model-Q4_K_M.gguf
+# !models/model.gguf
+# !models/bopomofo-ime-llama-250m-Q4_K_M.gguf
+
+llama-*
 
 
 

@@ -24,7 +24,7 @@ struct LlamaCtx : public IEngineCtx {
 };
 
 class ModeleManager {
-    const char *model_path = R"(E:\CODE_programming\.IME\models\model-Q4_K_M.gguf)";
+    const char *model_path = R"(E:\CODE_programming\.IME\models\bopomofo-ime-llama-250m-Q4_K_M.gguf)";
     llama_model_ptr _model;
     const llama_vocab *_vocab;
 
