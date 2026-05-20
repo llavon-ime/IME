@@ -1,4 +1,7 @@
 #pragma once
+#include <mutex>
+#include <optional>
+#include <utility>
 #include <vector>
 
 #include "bopomofo.hpp"
@@ -33,25 +36,48 @@ class CompositionBuffer {
     int idx = -1;
 
 public:
-    void pre() {
-        if (idx <= 0) {
-            buffer.insert(buffer.begin(), {});
-        } else {
-            idx--;
-        }
-    }
-    void next() {
-        idx++;
-        if (idx == buffer.size()) {
-            buffer.push_back({});
-        }
-    }
-    void remove_cur() {
-        if (idx == -1) {
-            return;
-        }
-        buffer.erase(buffer.begin() + idx);
+    bool pre() {
+        if (idx < 0) return false;
         idx--;
+        return true;
+    }
+    bool next() {
+        if (idx + 1 >= static_cast<int>(buffer.size())) return false;
+        idx++;
+        return true;
+    }
+    bool remove_last() {
+        std::lock_guard lock(mutex);
+        if (idx < 0 || idx >= static_cast<int>(buffer.size())) return false;
+
+        bool removed = false;
+        if (buffer[idx].is_compositable()) {
+            buffer.erase(buffer.begin() + idx);
+            idx--;
+            removed = true;
+        } else {
+            removed = buffer[idx].pop_last_bopomofo();
+            if (!removed || buffer[idx].is_null()) {
+                buffer.erase(buffer.begin() + idx);
+                idx--;
+                removed = true;
+            }
+        }
+
+        if (buffer.empty()) {
+            idx = -1;
+            return removed;
+        }
+
+        if (idx >= static_cast<int>(buffer.size())) {
+            idx = static_cast<int>(buffer.size()) - 1;
+        }
+
+        for (int i = 0; i <= idx; i++) {
+            buffer[i].predicted = false;
+        }
+
+        return removed;
     }
     void clear() {
         buffer.clear();
@@ -60,9 +86,46 @@ public:
     bool empty() const {
         return buffer.empty();
     }
+    bool current_invalid() const {
+        return idx >= 0 && idx < static_cast<int>(buffer.size()) && buffer[idx].is_invalid();
+    }
+    bool current_compositable() const {
+        return idx >= 0 && idx < static_cast<int>(buffer.size()) && buffer[idx].is_compositable();
+    }
+    bool current_has_candidate_list() const {
+        return idx >= 0 && idx < static_cast<int>(buffer.size()) && buffer[idx].is_compositable() &&
+               buffer[idx].get_candidates().size() > 1;
+    }
+    void invalidate_all_predictions() {
+        for (int i = 0; i < static_cast<int>(buffer.size()); i++) {
+            buffer[i].predicted = false;
+        }
+    }
+    size_t caret_offset() const {
+        size_t offset = 0;
+        for (int i = 0; i <= idx && i < static_cast<int>(buffer.size()); i++) {
+            offset += buffer[i].current().size();
+        }
+        return offset;
+    }
+    std::optional<std::pair<size_t, size_t>> current_invalid_span() const {
+        if (!current_invalid()) {
+            return std::nullopt;
+        }
+
+        size_t start = 0;
+        for (int i = 0; i < idx; i++) {
+            start += buffer[i].current().size();
+        }
+        return std::pair{start, buffer[idx].current().size()};
+    }
     void add(char16_t ch) {
         std::lock_guard lock(mutex);
         DebugSink::instance().send(L"INFO", ch);
+        if (idx >= 0 && idx < static_cast<int>(buffer.size()) && buffer[idx].is_invalid()) {
+            buffer.erase(buffer.begin() + idx);
+            idx--;
+        }
         if (idx == -1 || !buffer[idx].accept(ch)) {
             idx++;
             // buffer.insert(buffer.begin() + idx, {}); 會炸 我操你媽的標準委員會
@@ -74,22 +137,41 @@ public:
             // do nothing
         }
     }
+    void add_chosen_candidate(char32_t ch) {
+        std::lock_guard lock(mutex);
+        if (idx >= 0 && idx < static_cast<int>(buffer.size()) && buffer[idx].is_invalid()) {
+            buffer.erase(buffer.begin() + idx);
+            idx--;
+        }
+
+        idx++;
+        buffer.insert(buffer.begin() + idx, BopomofoPos{});
+        buffer[idx].set_chosen_candidate(ch);
+
+        for (int i = 0; i <= idx; i++) {
+            buffer[i].predicted = false;
+        }
+        buffer[idx].predicted = true;
+    }
     void predict_paddings(std::u16string context) {
         DebugSink::instance().send(L"INFO", u"context : " + context);
-        if (buffer[idx].is_compositable()) {
-            bool need_predict = false;
-            for (int i = idx; i >= 0; i--) {
-                if (!buffer[i].predicted) {
-                    need_predict = true;
-                    break;
-                }
-            }
-            if (!need_predict) {
-                return;
-            }
-            auto engine = get_engine();
-            engine->predict(context, std::span<BopomofoPos>(buffer.begin(), buffer.begin() + idx + 1));
+        if (buffer.empty()) {
+            return;
         }
+
+        bool need_predict = false;
+        for (auto& item : buffer) {
+            if (!item.predicted) {
+                need_predict = true;
+                break;
+            }
+        }
+        if (!need_predict) {
+            return;
+        }
+
+        auto engine = get_engine();
+        engine->predict(context, std::span<BopomofoPos>(buffer.begin(), buffer.end()));
     }
     BopomofoPos& cur() {
         if (idx < 0 || idx >= buffer.size()) {

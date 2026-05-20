@@ -1,6 +1,8 @@
 #include "textService.h"
 
+#include <algorithm>
 #include <array>
+#include <optional>
 
 #include "candidateUiController.hpp"
 #include "core/bopomofo.hpp"
@@ -189,6 +191,74 @@ HRESULT apply_composition_display_attribute(ITfContext* context, TfEditCookie ec
     return attribute_property->SetValue(ec, range, &value);
 }
 
+bool key_down(int virtual_key) {
+    return (GetKeyState(virtual_key) & 0x8000) != 0 || (GetAsyncKeyState(virtual_key) & 0x8000) != 0;
+}
+
+bool modifier_key(WPARAM wParam) {
+    return wParam == VK_SHIFT || wParam == VK_LSHIFT || wParam == VK_RSHIFT || wParam == VK_CONTROL ||
+           wParam == VK_LCONTROL || wParam == VK_RCONTROL || wParam == VK_MENU || wParam == VK_LMENU ||
+           wParam == VK_RMENU;
+}
+
+bool modified_passthrough_key(WPARAM wParam) {
+    if (modifier_key(wParam)) {
+        return true;
+    }
+
+    return key_down(VK_CONTROL) || key_down(VK_MENU) || key_down(VK_SHIFT);
+}
+
+std::optional<std::u16string> punctuation_shortcut(WPARAM wParam) {
+    if (!key_down(VK_CONTROL) || key_down(VK_MENU) || modifier_key(wParam)) {
+        return std::nullopt;
+    }
+
+    if (key_down(VK_SHIFT)) {
+        switch (wParam) {
+            case VK_OEM_COMMA:
+                return u"\u300A";
+            case VK_OEM_PERIOD:
+                return u"\u300B";
+            case VK_OEM_1:
+                return u"\uFF1A";
+            case VK_OEM_7:
+                return u"\uFF02";
+            case VK_OEM_4:
+                return u"\uFF5B";
+            case VK_OEM_6:
+                return u"\uFF5D";
+            case '1':
+                return u"\uFF01";
+            case VK_OEM_2:
+                return u"\uFF1F";
+            default:
+                return std::nullopt;
+        }
+    }
+
+    switch (wParam) {
+        case VK_OEM_COMMA:
+            return u"\uFF0C";
+        case VK_OEM_PERIOD:
+            return u"\u3002";
+        case VK_OEM_1:
+            return u"\uFF1B";
+        case VK_OEM_7:
+            return u"\u3001";
+        case VK_OEM_2:
+            return u"\u2026";
+        case VK_OEM_MINUS:
+            return u"\u2014";
+        case VK_OEM_4:
+            return u"\u3010";
+        case VK_OEM_6:
+            return u"\u3011";
+        default:
+            return std::nullopt;
+    }
+}
+
 }  // namespace
 
 namespace tsf {
@@ -272,7 +342,6 @@ HRESULT TextService::activate(ITfThreadMgr* pThreadMgr, TfClientId tfClientId) {
 
     DebugSink::instance().connect();
     DebugSink::instance().send(L"IME", L"Activated");
-    ModeleManager::initialize();
 
     return S_OK;
 }
@@ -379,8 +448,19 @@ STDMETHODIMP TextService::OnTestKeyDown(ITfContext* /*pContext*/, WPARAM wParam,
     if (!pfEaten) return E_INVALIDARG;
     DebugSink::instance().send(L"EVENT", L"OnTestKeyDown key=" + std::to_wstring(wParam));
 
+    if (punctuation_shortcut(wParam)) {
+        *pfEaten = TRUE;
+        return S_OK;
+    }
+
+    if (modified_passthrough_key(wParam)) {
+        *pfEaten = FALSE;
+        return S_OK;
+    }
+
     if (candidate_ui_->is_active()) {
-        *pfEaten = candidate_ui_->can_handle_key(wParam) ? TRUE : FALSE;
+        const bool backspace_composition = (wParam == VK_BACK && !compositionBuffer.empty());
+        *pfEaten = (candidate_ui_->can_handle_key(wParam) || backspace_composition) ? TRUE : FALSE;
         DebugSink::instance().send(
             L"EVENT", L"OnTestKeyDown candidate mode, eaten="s + (*pfEaten ? L"TRUE" : L"FALSE"));
         return S_OK;
@@ -388,14 +468,17 @@ STDMETHODIMP TextService::OnTestKeyDown(ITfContext* /*pContext*/, WPARAM wParam,
 
     if (!compositionBuffer.empty()) {
         const bool editing_key = (wParam == VK_RETURN || wParam == VK_ESCAPE || wParam == VK_BACK ||
-                                  wParam == VK_DOWN || wParam == VK_RIGHT);
+                                  wParam == VK_LEFT || wParam == VK_RIGHT || wParam == VK_DOWN ||
+                                  wParam == VK_SPACE);
         if (editing_key) {
             *pfEaten = TRUE;
             return S_OK;
         }
     }
 
-    *pfEaten = (Bopomofo::lookup(static_cast<int>(wParam)) != std::nullopt) ? TRUE : FALSE;
+    const bool is_bopomofo_key = Bopomofo::lookup(static_cast<int>(wParam)) != std::nullopt;
+    const bool starts_composition = is_bopomofo_key && wParam != VK_SPACE;
+    *pfEaten = starts_composition ? TRUE : FALSE;
     return S_OK;
 } catch (...) {
     return handle_com_exception();
@@ -425,6 +508,17 @@ STDMETHODIMP TextService::OnKeyDown(ITfContext* pContext, WPARAM wParam, LPARAM 
     *pfEaten = FALSE;
     DebugSink::instance().send(L"EVENT", L"OnKeyDown");
 
+    if (const auto punctuation = punctuation_shortcut(wParam)) {
+        compositionBuffer.add_chosen_candidate((*punctuation)[0]);
+        set_composition_text(pContext, compositionBuffer.to_string());
+        *pfEaten = TRUE;
+        return S_OK;
+    }
+
+    if (modified_passthrough_key(wParam)) {
+        return S_OK;
+    }
+
     if (candidate_ui_->is_active()) {
         const CandidateKeyResult result = candidate_ui_->handle_key(wParam);
         switch (result) {
@@ -453,17 +547,19 @@ STDMETHODIMP TextService::OnKeyDown(ITfContext* pContext, WPARAM wParam, LPARAM 
 
     if (wParam == VK_ESCAPE && itfComposition) {
         DebugSink::instance().send(L"CANCEL", compositionBuffer.to_string());
-        compositionBuffer.clear();
-        set_composition_text(pContext, L""_u16);
-        end_composition(pContext);
+        discard_composition(pContext);
         *pfEaten = TRUE;
         return S_OK;
     }
 
     if (wParam == VK_BACK && !compositionBuffer.empty()) {
-        compositionBuffer.remove_cur();
+        if (!compositionBuffer.remove_last()) {
+            candidate_ui_->hide();
+            *pfEaten = TRUE;
+            return S_OK;
+        }
         if (compositionBuffer.empty()) {
-            end_composition(pContext);
+            discard_composition(pContext);
         } else {
             set_composition_text(pContext, compositionBuffer.to_string());
         }
@@ -477,13 +573,31 @@ STDMETHODIMP TextService::OnKeyDown(ITfContext* pContext, WPARAM wParam, LPARAM 
         return S_OK;
     }
 
-    if (wParam == VK_RIGHT && !compositionBuffer.empty()) {
-        show_candidate_list_for_current_input(pContext, true);
+    if (wParam == VK_LEFT && !compositionBuffer.empty()) {
+        candidate_ui_->hide();
+        compositionBuffer.pre();
+        set_composition_text(pContext, compositionBuffer.to_string());
         *pfEaten = TRUE;
         return S_OK;
     }
+
+    if (wParam == VK_RIGHT && !compositionBuffer.empty()) {
+        candidate_ui_->hide();
+        compositionBuffer.next();
+        set_composition_text(pContext, compositionBuffer.to_string());
+        *pfEaten = TRUE;
+        return S_OK;
+    }
+
+    if (wParam == VK_SPACE && !compositionBuffer.empty() && compositionBuffer.current_compositable()) {
+        end_composition(pContext);
+        insert_text(pContext, u" ");
+        *pfEaten = TRUE;
+        return S_OK;
+    }
+
     auto cur_char = Bopomofo::lookup(static_cast<int>(wParam));
-    if (cur_char == std::nullopt) {
+    if (cur_char == std::nullopt || (wParam == VK_SPACE && compositionBuffer.empty())) {
         candidate_ui_->hide();
         // TODO: Handle non-Bopomofo keys.
         *pfEaten = FALSE;
@@ -494,9 +608,16 @@ STDMETHODIMP TextService::OnKeyDown(ITfContext* pContext, WPARAM wParam, LPARAM 
     //     start_composition(pContext);
     // }
     compositionBuffer.add(cur_char.value());
-    compositionBuffer.predict_paddings(get_pre_composit_context(pContext));
+    const auto invalid_span = compositionBuffer.current_invalid_span();
+    if (!invalid_span) {
+        compositionBuffer.predict_paddings(get_pre_composit_context(pContext));
+    }
     DebugSink::instance().send(L"KEY", compositionBuffer.to_string());
-    set_composition_text(pContext, compositionBuffer.to_string());
+    if (invalid_span) {
+        set_composition_text(pContext, compositionBuffer.to_string(), invalid_span->first, invalid_span->second);
+    } else {
+        set_composition_text(pContext, compositionBuffer.to_string());
+    }
     *pfEaten = TRUE;
     return S_OK;
 } catch (...) {
@@ -647,12 +768,82 @@ HRESULT TextService::end_composition(ITfContext* pContext) {
     return S_OK;
 }
 
+HRESULT TextService::discard_composition(ITfContext* pContext) {
+    candidate_ui_->hide();
+    compositionBuffer.clear();
+    if (!pContext) return E_INVALIDARG;
+    if (!itfComposition) return S_OK;
+
+    winrt::com_ptr<EditSession> editSession = winrt::make_self<EditSession>();
+    editSession->set_operation([this, pContext](TfEditCookie ec) {
+        if (!itfComposition) {
+            return;
+        }
+
+        winrt::com_ptr<ITfRange> range;
+        itfComposition->GetRange(range.put()) | win::check();
+
+        winrt::com_ptr<ITfRange> caret_range;
+        range->Clone(caret_range.put()) | win::check();
+        caret_range->Collapse(ec, TF_ANCHOR_START) | win::check();
+
+        range->SetText(ec, 0, L"", 0) | win::check();
+        itfComposition->EndComposition(ec) | win::check();
+        itfComposition = nullptr;
+
+        TF_SELECTION selection = {};
+        selection.range = caret_range.get();
+        selection.style.ase = TF_AE_END;
+        selection.style.fInterimChar = FALSE;
+        pContext->SetSelection(ec, 1, &selection) | win::check();
+    });
+
+    HRESULT hrSession;
+    pContext->RequestEditSession(_tfClientId, editSession.get(), TF_ES_READWRITE | TF_ES_SYNC, &hrSession) |
+        win::check();
+
+    return S_OK;
+}
+
+HRESULT TextService::insert_text(ITfContext* pContext, const std::u16string& text) {
+    if (!pContext) return E_INVALIDARG;
+    if (text.empty()) return S_OK;
+
+    winrt::com_ptr<ITfInsertAtSelection> insertAtSelection;
+    HRESULT hr = pContext->QueryInterface<ITfInsertAtSelection>(insertAtSelection.put());
+    if (FAILED(hr)) return hr;
+
+    winrt::com_ptr<EditSession> editSession = winrt::make_self<EditSession>();
+    editSession->set_operation([pContext, insertAtSelection, text](TfEditCookie ec) {
+        winrt::com_ptr<ITfRange> range;
+        insertAtSelection->InsertTextAtSelection(ec, TF_IAS_QUERYONLY, nullptr, 0, range.put()) | win::check();
+        range->SetText(ec, 0, convu16(text.data()), static_cast<LONG>(text.size())) | win::check();
+
+        winrt::com_ptr<ITfRange> caret_range;
+        range->Clone(caret_range.put()) | win::check();
+        caret_range->Collapse(ec, TF_ANCHOR_END) | win::check();
+
+        TF_SELECTION selection = {};
+        selection.range = caret_range.get();
+        selection.style.ase = TF_AE_END;
+        selection.style.fInterimChar = FALSE;
+        pContext->SetSelection(ec, 1, &selection) | win::check();
+    });
+
+    HRESULT hrSession;
+    pContext->RequestEditSession(_tfClientId, editSession.get(), TF_ES_READWRITE | TF_ES_SYNC, &hrSession) |
+        win::check();
+
+    return S_OK;
+}
+
 /**
  * @brief Updates the active composition text.
  *
  * Applies the visible composition string to the current TSF context.
  */
-HRESULT TextService::set_composition_text(ITfContext* pContext, const std::u16string& text) {
+HRESULT TextService::set_composition_text(ITfContext* pContext, const std::u16string& text, size_t select_start,
+                                          size_t select_length) {
     if (!pContext) return E_INVALIDARG;
 
     winrt::com_ptr<ITfContextComposition> contextComposition;
@@ -679,13 +870,27 @@ HRESULT TextService::set_composition_text(ITfContext* pContext, const std::u16st
 
         apply_composition_display_attribute(pContext, ec, range.get()) | win::check();
 
-        winrt::com_ptr<ITfRange> caret_range;
-        range->Clone(caret_range.put()) | win::check();
-        caret_range->Collapse(ec, TF_ANCHOR_END) | win::check();
+        const bool select_span = select_start != std::u16string::npos && select_length > 0;
+        winrt::com_ptr<ITfRange> selection_range;
+        range->Clone(selection_range.put()) | win::check();
+        if (select_span) {
+            const LONG start = static_cast<LONG>(select_start);
+            const LONG length = static_cast<LONG>(select_length);
+            LONG shifted = 0;
+            selection_range->Collapse(ec, TF_ANCHOR_START) | win::check();
+            selection_range->ShiftEnd(ec, start + length, &shifted, nullptr) | win::check();
+            selection_range->ShiftStart(ec, start, &shifted, nullptr) | win::check();
+        } else {
+            const LONG caret = static_cast<LONG>(std::min(compositionBuffer.caret_offset(), text.size()));
+            LONG shifted = 0;
+            selection_range->Collapse(ec, TF_ANCHOR_START) | win::check();
+            selection_range->ShiftEnd(ec, caret, &shifted, nullptr) | win::check();
+            selection_range->Collapse(ec, TF_ANCHOR_END) | win::check();
+        }
 
         TF_SELECTION selection = {};
-        selection.range = caret_range.get();
-        selection.style.ase = TF_AE_END;
+        selection.range = selection_range.get();
+        selection.style.ase = select_span ? TF_AE_NONE : TF_AE_END;
         selection.style.fInterimChar = FALSE;
         pContext->SetSelection(ec, 1, &selection) | win::check();
     });
@@ -700,11 +905,14 @@ void TextService::refresh_composition_after_candidate_finalize(ITfContext* pCont
 
     DebugSink::instance().send(
         L"INFO", L"refresh_composition_after_candidate_finalize text="_u16 + compositionBuffer.to_string());
+    compositionBuffer.invalidate_all_predictions();
+    compositionBuffer.predict_paddings(get_pre_composit_context(pContext));
     set_composition_text(pContext, compositionBuffer.to_string());
 }
 
 void TextService::show_candidate_list_for_current_input(ITfContext* pContext, bool expand) {
-    if (!pContext || compositionBuffer.empty()) {
+    if (!pContext || compositionBuffer.empty() || !compositionBuffer.current_has_candidate_list()) {
+        candidate_ui_->hide();
         return;
     }
 

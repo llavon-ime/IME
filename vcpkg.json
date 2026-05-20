@@ -3,6 +3,8 @@
     "cppwinrt",
     "jsoncons",
     "llama-cpp",
-    "utfcpp"
+    "reflectcpp",
+    "utfcpp",
+    "asio"
   ]
 }

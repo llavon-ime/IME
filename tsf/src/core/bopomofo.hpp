@@ -200,12 +200,13 @@ struct BopomofoPos {
     bool chosen = false;     // user 手動選擇
     bool predicted = false;  // engine 預測
     bool compositable = false;
+    bool invalid = false;
     std::vector<char32_t> candidates;
 
     // TODO temp
     std::optional<std::vector<char32_t>> predicted_candidate;
     bool accept(char16_t c) {
-        if (is_compositable()) {
+        if (is_compositable() || invalid) {
             return false;
         }
         if (Bopomofo::initial.contains(c)) {
@@ -218,7 +219,8 @@ struct BopomofoPos {
             tone = c;
             std::vector<char32_t>* candi = HanziMapEngine::instance().lookup_all(to_bopomofo_string());
             if (candi == nullptr) {
-                return false;
+                invalid = true;
+                return true;
             }
             compositable = true;
             candidates = *candi;
@@ -257,8 +259,26 @@ public:
     bool is_compositable() const {
         return compositable;
     }
+    bool is_invalid() const {
+        return invalid;
+    }
+    void set_chosen_candidate(char32_t ch) {
+        initial = 0;
+        medial = 0;
+        final = 0;
+        tone = 0;
+        choose_index = 0;
+        chosen = true;
+        predicted = true;
+        compositable = true;
+        invalid = false;
+        predicted_candidate.reset();
+        candidates = {ch};
+    }
     void set_choose_index(int idx) {
         choose_index = idx;
+        chosen = true;
+        predicted = true;
     }
     const std::vector<char32_t>& get_candidates() const {
         if (!is_compositable()) {
@@ -268,6 +288,21 @@ public:
     }
     const void set_candaiates(const std::vector<char32_t>& nc) {
         candidates = nc;
+    }
+
+    bool pop_last_bopomofo() {
+        compositable = false;
+        invalid = false;
+        chosen = false;
+        predicted = false;
+        predicted_candidate.reset();
+        candidates.clear();
+
+        if (tone) { tone = 0; return true; }
+        if (final) { final = 0; return true; }
+        if (medial) { medial = 0; return true; }
+        if (initial) { initial = 0; return true; }
+        return false;
     }
 };
 

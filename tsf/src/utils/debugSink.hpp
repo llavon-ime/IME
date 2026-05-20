@@ -1,4 +1,38 @@
-﻿#pragma once
+#pragma once
+
+#if 1
+
+class DebugSink {
+public:
+    static DebugSink& instance() {
+        static DebugSink s;
+        return s;
+    }
+
+    inline void connect(const char* host = "239.255.42.99", unsigned short port = 9876) {
+        (void)host;
+        (void)port;
+    }
+
+    inline void disconnect() {}
+
+    template <typename Text>
+    inline void send(const wchar_t* tag, const Text& text) {
+        (void)tag;
+        (void)text;
+    }
+
+    bool isConnected() const {
+        return false;
+    }
+
+private:
+    DebugSink() = default;
+    DebugSink(const DebugSink&) = delete;
+    DebugSink& operator=(const DebugSink&) = delete;
+};
+
+#else
 
 #include <winsock2.h>
 #include <ws2tcpip.h>
@@ -38,7 +72,6 @@ public:
         _dest.sin_port = htons(port);
         _dest.sin_addr = multicastAddr;
 
-        // Keep multicast traffic local and visible to local receivers.
         const int ttl = 1;
         setsockopt(sock, IPPROTO_IP, IP_MULTICAST_TTL, reinterpret_cast<const char*>(&ttl), sizeof(ttl));
 
@@ -54,7 +87,6 @@ public:
         _sock = sock;
     }
 
-    // Close socket and clean up Winsock.
     inline void disconnect() {
         if (_sock != INVALID_SOCKET) {
             ::closesocket(_sock);
@@ -66,7 +98,6 @@ public:
         }
     }
 
-    // Send one line in the format "[TAG] TEXT\n" (UTF-8).
     inline void send(const wchar_t* tag, const std::string& text) {
         sendUtf8(toUtf8(tag), toUtf8(text));
     }
@@ -200,3 +231,5 @@ private:
         return result;
     }
 };
+
+#endif

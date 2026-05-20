@@ -65,7 +65,10 @@ private:
 
     HRESULT start_composition(ITfContext* pContext);
     HRESULT end_composition(ITfContext* pContext);
-    HRESULT set_composition_text(ITfContext* pContext, const std::u16string& text);
+    HRESULT discard_composition(ITfContext* pContext);
+    HRESULT insert_text(ITfContext* pContext, const std::u16string& text);
+    HRESULT set_composition_text(ITfContext* pContext, const std::u16string& text,
+                                 size_t select_start = std::u16string::npos, size_t select_length = 0);
     void refresh_composition_after_candidate_finalize(ITfContext* pContext);
     void show_candidate_list_for_current_input(ITfContext* pContext, bool expand);
     void show_candidate_list(BopomofoPos& pos, ITfContext* pContext);
