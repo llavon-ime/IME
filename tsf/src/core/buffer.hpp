@@ -35,6 +35,22 @@ class CompositionBuffer {
     std::mutex mutex;
     int idx = -1;
 
+    int candidate_target_index() const {
+        if (buffer.empty()) return -1;
+
+        const int size = static_cast<int>(buffer.size());
+        const int right_of_caret = idx + 1;
+        if (right_of_caret >= 0 && right_of_caret < size) {
+            return right_of_caret;
+        }
+
+        if (idx >= 0 && idx < size) {
+            return idx;
+        }
+
+        return -1;
+    }
+
 public:
     bool pre() {
         if (idx < 0) return false;
@@ -93,8 +109,8 @@ public:
         return idx >= 0 && idx < static_cast<int>(buffer.size()) && buffer[idx].is_compositable();
     }
     bool current_has_candidate_list() const {
-        return idx >= 0 && idx < static_cast<int>(buffer.size()) && buffer[idx].is_compositable() &&
-               buffer[idx].get_candidates().size() > 1;
+        const int target = candidate_target_index();
+        return target >= 0 && buffer[target].is_compositable() && buffer[target].get_candidates().size() > 1;
     }
     void invalidate_all_predictions() {
         for (int i = 0; i < static_cast<int>(buffer.size()); i++) {
@@ -182,6 +198,14 @@ public:
             throw std::runtime_error("out of range");
         }
         return buffer[idx];
+    }
+    BopomofoPos& candidate_target() {
+        const int target = candidate_target_index();
+        if (target < 0 || target >= static_cast<int>(buffer.size())) {
+            DebugSink::instance().send(L"ERROR", "candidate target out of range");
+            throw std::runtime_error("candidate target out of range");
+        }
+        return buffer[target];
     }
     std::u16string to_string() const {
         std::u16string res;

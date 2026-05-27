@@ -916,7 +916,7 @@ void TextService::show_candidate_list_for_current_input(ITfContext* pContext, bo
         return;
     }
 
-    auto& target = compositionBuffer.cur();
+    auto& target = compositionBuffer.candidate_target();
     show_candidate_list(target, pContext);
     if (expand) {
         candidate_ui_->expand();
