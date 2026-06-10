@@ -40,6 +40,7 @@ benchmarks/*
 # release models
 # !models/model.gguf
 # !models/bopomofo-ime-llama-250m-Q4_K_M.gguf
+reports/
 
 llama-*
 
