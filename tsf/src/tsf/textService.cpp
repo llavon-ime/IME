@@ -195,10 +195,13 @@ bool key_down(int virtual_key) {
     return (GetKeyState(virtual_key) & 0x8000) != 0 || (GetAsyncKeyState(virtual_key) & 0x8000) != 0;
 }
 
+bool shift_key(WPARAM wParam) {
+    return wParam == VK_SHIFT || wParam == VK_LSHIFT || wParam == VK_RSHIFT;
+}
+
 bool modifier_key(WPARAM wParam) {
-    return wParam == VK_SHIFT || wParam == VK_LSHIFT || wParam == VK_RSHIFT || wParam == VK_CONTROL ||
-           wParam == VK_LCONTROL || wParam == VK_RCONTROL || wParam == VK_MENU || wParam == VK_LMENU ||
-           wParam == VK_RMENU;
+    return shift_key(wParam) || wParam == VK_CONTROL || wParam == VK_LCONTROL || wParam == VK_RCONTROL ||
+           wParam == VK_MENU || wParam == VK_LMENU || wParam == VK_RMENU;
 }
 
 bool modified_passthrough_key(WPARAM wParam) {
@@ -448,6 +451,21 @@ STDMETHODIMP TextService::OnTestKeyDown(ITfContext* /*pContext*/, WPARAM wParam,
     if (!pfEaten) return E_INVALIDARG;
     DebugSink::instance().send(L"EVENT", L"OnTestKeyDown key=" + std::to_wstring(wParam));
 
+    if (shift_key(wParam)) {
+        *pfEaten = TRUE;
+        return S_OK;
+    }
+
+    if (key_down(VK_SHIFT)) {
+        shift_toggle_pending_ = false;
+        shift_used_as_modifier_ = true;
+    }
+
+    if (get_engine()->current_input_mode() == InputMode::English && compositionBuffer.empty()) {
+        *pfEaten = FALSE;
+        return S_OK;
+    }
+
     if (punctuation_shortcut(wParam)) {
         *pfEaten = TRUE;
         return S_OK;
@@ -489,10 +507,9 @@ STDMETHODIMP TextService::OnTestKeyDown(ITfContext* /*pContext*/, WPARAM wParam,
  *
  * Leaves key-up events unhandled by default.
  */
-STDMETHODIMP TextService::OnTestKeyUp(ITfContext* /*pContext*/, WPARAM /*wParam*/, LPARAM /*lParam*/,
-                                      BOOL* pfEaten) try {
+STDMETHODIMP TextService::OnTestKeyUp(ITfContext* /*pContext*/, WPARAM wParam, LPARAM /*lParam*/, BOOL* pfEaten) try {
     if (!pfEaten) return E_INVALIDARG;
-    *pfEaten = FALSE;
+    *pfEaten = shift_key(wParam) && shift_toggle_pending_ ? TRUE : FALSE;
     return S_OK;
 } catch (...) {
     return handle_com_exception();
@@ -503,10 +520,29 @@ STDMETHODIMP TextService::OnTestKeyUp(ITfContext* /*pContext*/, WPARAM /*wParam*
  *
  * Updates the active composition or handles commit and cancel keys.
  */
-STDMETHODIMP TextService::OnKeyDown(ITfContext* pContext, WPARAM wParam, LPARAM /*lParam*/, BOOL* pfEaten) try {
+STDMETHODIMP TextService::OnKeyDown(ITfContext* pContext, WPARAM wParam, LPARAM lParam, BOOL* pfEaten) try {
     if (!pfEaten) return E_INVALIDARG;
     *pfEaten = FALSE;
     DebugSink::instance().send(L"EVENT", L"OnKeyDown");
+
+    if (shift_key(wParam)) {
+        const bool repeated_keydown = (lParam & (1LL << 30)) != 0;
+        if (!repeated_keydown) {
+            shift_toggle_pending_ = true;
+            shift_used_as_modifier_ = false;
+        }
+        *pfEaten = TRUE;
+        return S_OK;
+    }
+
+    if (key_down(VK_SHIFT)) {
+        shift_toggle_pending_ = false;
+        shift_used_as_modifier_ = true;
+    }
+
+    if (get_engine()->current_input_mode() == InputMode::English && compositionBuffer.empty()) {
+        return S_OK;
+    }
 
     if (const auto punctuation = punctuation_shortcut(wParam)) {
         compositionBuffer.add_chosen_candidate((*punctuation)[0]);
@@ -629,8 +665,23 @@ STDMETHODIMP TextService::OnKeyDown(ITfContext* pContext, WPARAM wParam, LPARAM 
  *
  * Leaves key-up events unconsumed after key-down handling.
  */
-STDMETHODIMP TextService::OnKeyUp(ITfContext* /*pContext*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL* pfEaten) try {
+STDMETHODIMP TextService::OnKeyUp(ITfContext* pContext, WPARAM wParam, LPARAM /*lParam*/, BOOL* pfEaten) try {
     if (!pfEaten) return E_INVALIDARG;
+    if (shift_key(wParam) && shift_toggle_pending_) {
+        if (!shift_used_as_modifier_) {
+            const InputMode mode = get_engine()->toggle_input_mode();
+            DebugSink::instance().send(L"MODE", mode == InputMode::Chinese ? L"Chinese" : L"English");
+            if (mode == InputMode::English && (itfComposition || !compositionBuffer.empty())) {
+                discard_composition(pContext);
+            }
+        }
+
+        shift_toggle_pending_ = false;
+        shift_used_as_modifier_ = false;
+        *pfEaten = TRUE;
+        return S_OK;
+    }
+
     *pfEaten = FALSE;
     return S_OK;
 } catch (...) {

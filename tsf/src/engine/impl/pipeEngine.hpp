@@ -11,6 +11,12 @@
 
 namespace tsf {
 
+enum class PipeCommand : uint8_t {
+    Predict = 1,
+    ToggleInputMode = 2,
+    GetInputMode = 3,
+};
+
 class PipeEngine : public IEngine {
     static inline HANDLE hPipe = INVALID_HANDLE_VALUE;
 
@@ -66,6 +72,19 @@ class PipeEngine : public IEngine {
         return true;
     }
 
+    static bool write_command(PipeCommand command) {
+        const uint8_t raw_command = static_cast<uint8_t>(command);
+        return write_exact(raw_command);
+    }
+
+    static bool read_input_mode(InputMode& mode) {
+        uint8_t raw_mode = 0;
+        if (!read_exact(raw_mode)) return false;
+
+        mode = raw_mode == static_cast<uint8_t>(InputMode::English) ? InputMode::English : InputMode::Chinese;
+        return true;
+    }
+
 public:
     void predict(const std::u16string& context, std::span<BopomofoPos> padding) override {
         for (auto& p : padding) {
@@ -77,6 +96,8 @@ public:
         if (!ensure_pipe()) return;
 
         // --- request ---
+        if (!write_command(PipeCommand::Predict)) { disconnect(); return; }
+
         uint32_t ctx_len = static_cast<uint32_t>(context.size());
         if (!write_exact(ctx_len)) { disconnect(); return; }
         if (ctx_len > 0 && !write_exact(context.data(), ctx_len * sizeof(char16_t))) { disconnect(); return; }
@@ -115,6 +136,26 @@ public:
             }
             padding[i].predicted = true;
         }
+    }
+
+    InputMode toggle_input_mode() override {
+        if (!ensure_pipe()) return InputMode::Chinese;
+
+        if (!write_command(PipeCommand::ToggleInputMode)) { disconnect(); return InputMode::Chinese; }
+
+        InputMode mode = InputMode::Chinese;
+        if (!read_input_mode(mode)) { disconnect(); return InputMode::Chinese; }
+        return mode;
+    }
+
+    InputMode current_input_mode() override {
+        if (!ensure_pipe()) return InputMode::Chinese;
+
+        if (!write_command(PipeCommand::GetInputMode)) { disconnect(); return InputMode::Chinese; }
+
+        InputMode mode = InputMode::Chinese;
+        if (!read_input_mode(mode)) { disconnect(); return InputMode::Chinese; }
+        return mode;
     }
 };
 

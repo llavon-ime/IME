@@ -80,6 +80,8 @@ private:
     winrt::com_ptr<ITfComposition> itfComposition;
     std::unique_ptr<CandidateUiController> candidate_ui_;
     CompositionBuffer compositionBuffer;
+    bool shift_toggle_pending_ = false;
+    bool shift_used_as_modifier_ = false;
 };
 
 };  // namespace tsf

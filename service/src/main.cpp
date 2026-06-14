@@ -1,6 +1,7 @@
 #include <windows.h>
 
 #include <asio.hpp>
+#include <atomic>
 #include <cstdint>
 #include <format>
 #include <iostream>
@@ -23,6 +24,33 @@ enum class EngineBackend {
     Llama,
     Onnx,
 };
+
+enum class PipeCommand : uint8_t {
+    Predict = 1,
+    ToggleInputMode = 2,
+    GetInputMode = 3,
+};
+
+enum class InputMode : uint8_t {
+    Chinese = 0,
+    English = 1,
+};
+
+std::atomic<InputMode> g_input_mode{InputMode::Chinese};
+
+static InputMode current_input_mode() {
+    return g_input_mode.load(std::memory_order_relaxed);
+}
+
+static InputMode toggle_input_mode() {
+    InputMode current = current_input_mode();
+    while (true) {
+        const InputMode next = current == InputMode::Chinese ? InputMode::English : InputMode::Chinese;
+        if (g_input_mode.compare_exchange_weak(current, next, std::memory_order_relaxed)) {
+            return next;
+        }
+    }
+}
 
 static EngineBackend selected_engine_backend() {
     char env[32]{};
@@ -148,16 +176,45 @@ static asio::awaitable<void> write_response(asio::windows::stream_handle& pipe,
     }
 }
 
+static asio::awaitable<void> write_input_mode(asio::windows::stream_handle& pipe, InputMode mode) {
+    const uint8_t raw_mode = static_cast<uint8_t>(mode);
+    co_await write_val(pipe, raw_mode);
+}
+
 static asio::awaitable<void> handle_client(asio::windows::stream_handle pipe, EngineBackend backend) {
     std::unique_ptr<IEngine> engine;
-    try {
-        engine = create_engine(backend);
-    } catch (const std::exception& e) {
-        std::cerr << "[ERR] engine init: " << e.what() << std::endl;
-        co_return;
-    }
 
     while (true) {
+        uint8_t raw_command = 0;
+        if (!co_await read_val(pipe, raw_command)) break;
+
+        const auto command = static_cast<PipeCommand>(raw_command);
+        if (command == PipeCommand::ToggleInputMode) {
+            const InputMode mode = toggle_input_mode();
+            std::cerr << "[SRV] input mode: " << (mode == InputMode::Chinese ? "Chinese" : "English") << std::endl;
+            co_await write_input_mode(pipe, mode);
+            continue;
+        }
+
+        if (command == PipeCommand::GetInputMode) {
+            co_await write_input_mode(pipe, current_input_mode());
+            continue;
+        }
+
+        if (command != PipeCommand::Predict) {
+            std::cerr << "[ERR] unknown pipe command: " << static_cast<int>(raw_command) << std::endl;
+            break;
+        }
+
+        if (!engine) {
+            try {
+                engine = create_engine(backend);
+            } catch (const std::exception& e) {
+                std::cerr << "[ERR] engine init: " << e.what() << std::endl;
+                co_return;
+            }
+        }
+
         uint32_t ctx_len = 0;
         if (!co_await read_val(pipe, ctx_len)) break;
 
