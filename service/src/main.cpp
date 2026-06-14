@@ -6,12 +6,74 @@
 #include <iostream>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "engine/llamaEngine.hpp"
+#if IMESVC_ENABLE_ONNX
+#include "engine/onnxEngine.hpp"
+#endif
 #include "pipe/server.hpp"
 
 using namespace imesvc;
+
+namespace {
+
+enum class EngineBackend {
+    Llama,
+    Onnx,
+};
+
+static EngineBackend selected_engine_backend() {
+    char env[32]{};
+    const DWORD len = GetEnvironmentVariableA("IME_ENGINE", env, static_cast<DWORD>(sizeof(env)));
+    if (len > 0 && len < sizeof(env) && std::string_view(env, len) == "onnx") {
+        return EngineBackend::Onnx;
+    }
+    return EngineBackend::Llama;
+}
+
+static const char* backend_name(EngineBackend backend) {
+    switch (backend) {
+        case EngineBackend::Onnx:
+            return "onnx";
+        case EngineBackend::Llama:
+        default:
+            return "llama";
+    }
+}
+
+static void initialize_engine_backend(EngineBackend backend) {
+    switch (backend) {
+        case EngineBackend::Onnx:
+#if IMESVC_ENABLE_ONNX
+            OnnxModelManager::initialize();
+            break;
+#else
+            throw std::runtime_error("ONNX backend is not enabled in this build");
+#endif
+        case EngineBackend::Llama:
+        default:
+            ModelManager::initialize();
+            break;
+    }
+}
+
+static std::unique_ptr<IEngine> create_engine(EngineBackend backend) {
+    switch (backend) {
+        case EngineBackend::Onnx:
+#if IMESVC_ENABLE_ONNX
+            return std::make_unique<OnnxEngine>();
+#else
+            throw std::runtime_error("ONNX backend is not enabled in this build");
+#endif
+        case EngineBackend::Llama:
+        default:
+            return std::make_unique<LlamaEngine>();
+    }
+}
+
+}  // namespace
 
 static asio::awaitable<bool> read_exact(asio::windows::stream_handle& pipe, void* buf, size_t size) {
     size_t total = 0;
@@ -86,10 +148,10 @@ static asio::awaitable<void> write_response(asio::windows::stream_handle& pipe,
     }
 }
 
-static asio::awaitable<void> handle_client(asio::windows::stream_handle pipe) {
-    std::unique_ptr<LlamaEngine> engine;
+static asio::awaitable<void> handle_client(asio::windows::stream_handle pipe, EngineBackend backend) {
+    std::unique_ptr<IEngine> engine;
     try {
-        engine = std::make_unique<LlamaEngine>();
+        engine = create_engine(backend);
     } catch (const std::exception& e) {
         std::cerr << "[ERR] engine init: " << e.what() << std::endl;
         co_return;
@@ -127,7 +189,7 @@ static asio::awaitable<void> handle_client(asio::windows::stream_handle pipe) {
     }
 }
 
-static asio::awaitable<void> listener(asio::io_context& io_ctx) {
+static asio::awaitable<void> listener(asio::io_context& io_ctx, EngineBackend backend) {
     auto executor = co_await asio::this_coro::executor;
 
     while (true) {
@@ -163,16 +225,18 @@ static asio::awaitable<void> listener(asio::io_context& io_ctx) {
         std::cerr << "[SRV] client connected" << std::endl;
 
         asio::windows::stream_handle stream(executor, hPipe);
-        co_spawn(executor, handle_client(std::move(stream)), asio::detached);
+        co_spawn(executor, handle_client(std::move(stream), backend), asio::detached);
     }
 }
 
 int main() {
     SetConsoleOutputCP(65001);
     std::cerr << "[SRV] IME Service starting" << std::endl;
+    const EngineBackend backend = selected_engine_backend();
+    std::cerr << "[SRV] engine backend: " << backend_name(backend) << std::endl;
 
     try {
-        ModelManager::initialize();
+        initialize_engine_backend(backend);
         std::cerr << "[SRV] model loaded" << std::endl;
     } catch (const std::exception& e) {
         std::cerr << "[ERR] model load failed: " << e.what() << std::endl;
@@ -180,7 +244,7 @@ int main() {
     }
 
     asio::io_context io_ctx;
-    co_spawn(io_ctx, listener(io_ctx), asio::detached);
+    co_spawn(io_ctx, listener(io_ctx, backend), asio::detached);
     io_ctx.run();
 
     return 0;
