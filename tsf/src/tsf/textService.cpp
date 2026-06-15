@@ -640,6 +640,10 @@ STDMETHODIMP TextService::OnKeyDown(ITfContext* pContext, WPARAM wParam, LPARAM 
         return S_OK;
     }
 
+    if (wParam != VK_SPACE) {
+        get_engine()->ready();
+    }
+
     // if (!itfComposition) {
     //     start_composition(pContext);
     // }

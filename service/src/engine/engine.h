@@ -15,6 +15,7 @@ struct PredictResult {
 class IEngine {
 public:
     virtual ~IEngine() = default;
+    virtual void ready() {}
     virtual std::vector<PredictResult> predict(const std::u16string& context,
                                                const std::vector<PaddingEntry>& padding) = 0;
 };

@@ -29,6 +29,7 @@ enum class PipeCommand : uint8_t {
     Predict = 1,
     ToggleInputMode = 2,
     GetInputMode = 3,
+    Ready = 4,
 };
 
 enum class InputMode : uint8_t {
@@ -201,11 +202,6 @@ static asio::awaitable<void> handle_client(asio::windows::stream_handle pipe, En
             continue;
         }
 
-        if (command != PipeCommand::Predict) {
-            std::cerr << "[ERR] unknown pipe command: " << static_cast<int>(raw_command) << std::endl;
-            break;
-        }
-
         if (!engine) {
             try {
                 engine = create_engine(backend);
@@ -213,6 +209,23 @@ static asio::awaitable<void> handle_client(asio::windows::stream_handle pipe, En
                 std::cerr << "[ERR] engine init: " << e.what() << std::endl;
                 co_return;
             }
+        }
+
+        if (command == PipeCommand::Ready) {
+            uint8_t ok = 0;
+            try {
+                engine->ready();
+                ok = 1;
+            } catch (const std::exception& e) {
+                std::cerr << "[ERR] ready: " << e.what() << std::endl;
+            }
+            co_await write_val(pipe, ok);
+            continue;
+        }
+
+        if (command != PipeCommand::Predict) {
+            std::cerr << "[ERR] unknown pipe command: " << static_cast<int>(raw_command) << std::endl;
+            break;
         }
 
         uint32_t ctx_len = 0;

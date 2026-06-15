@@ -15,6 +15,7 @@ enum class PipeCommand : uint8_t {
     Predict = 1,
     ToggleInputMode = 2,
     GetInputMode = 3,
+    Ready = 4,
 };
 
 class PipeEngine : public IEngine {
@@ -86,6 +87,15 @@ class PipeEngine : public IEngine {
     }
 
 public:
+    void ready() override {
+        if (!ensure_pipe()) return;
+
+        if (!write_command(PipeCommand::Ready)) { disconnect(); return; }
+
+        uint8_t ok = 0;
+        if (!read_exact(ok)) { disconnect(); return; }
+    }
+
     void predict(const std::u16string& context, std::span<BopomofoPos> padding) override {
         for (auto& p : padding) {
             if (!p.is_predictable_by_engine()) {

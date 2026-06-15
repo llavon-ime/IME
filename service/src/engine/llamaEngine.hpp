@@ -29,6 +29,7 @@
 namespace imesvc {
 
 inline constexpr int kLlamaThreads = 8;
+inline constexpr auto kLlamaReadyIdleThreshold = std::chrono::milliseconds(500);
 
 class ModelManager {
     static std::filesystem::path resolve_model_path(std::source_location loc = std::source_location::current()) {
@@ -113,9 +114,14 @@ public:
     const llama_vocab* vocab() {
         return _vocab;
     }
-    llama_context* new_context() {
+    llama_context* new_context(uint32_t n_ctx = 0, uint32_t n_batch = 0) {
         std::cerr << "[SRV] creating context" << std::endl;
         auto params = llama_context_default_params();
+        if (n_ctx != 0) params.n_ctx = n_ctx;
+        if (n_batch != 0) {
+            params.n_batch = n_batch;
+            params.n_ubatch = n_batch;
+        }
         params.n_threads = kLlamaThreads;
         params.n_threads_batch = kLlamaThreads;
         auto ctx = llama_init_from_model(_model.get(), params);
@@ -127,9 +133,11 @@ public:
 
 class LlamaEngine : public IEngine {
     llama_context_ptr llama_ctx;
+    llama_context_ptr warmup_ctx;
     std::vector<llama_token> prev_tokens;
     llama_memory_t mem;
     llama_pos next_pos = 0;
+    std::chrono::steady_clock::time_point last_backend_touch = std::chrono::steady_clock::time_point::min();
 
     struct PredictTiming {
         long long tokenize_us = 0;
@@ -154,6 +162,34 @@ public:
         mem = llama_get_memory(llama_ctx.get());
         llama_memory_clear(mem, true);
         std::cerr << "[SRV] engine ready" << std::endl;
+    }
+
+    void ready() override {
+        const auto now = std::chrono::steady_clock::now();
+        if (last_backend_touch != std::chrono::steady_clock::time_point::min() &&
+            now - last_backend_touch < kLlamaReadyIdleThreshold) {
+            return;
+        }
+
+        if (!warmup_ctx) {
+            warmup_ctx.reset(ModelManager::instance().new_context(8, 1));
+        }
+
+        llama_token token = warmup_token();
+        llama_set_warmup(warmup_ctx.get(), true);
+        llama_batch batch = make_token_batch(&token, 1, 0, false);
+        const auto warmup_start = std::chrono::steady_clock::now();
+        int rc = llama_decode(warmup_ctx.get(), batch);
+        llama_synchronize(warmup_ctx.get());
+        llama_batch_free(batch);
+        llama_memory_clear(llama_get_memory(warmup_ctx.get()), true);
+        llama_set_warmup(warmup_ctx.get(), false);
+        if (rc == 0) mark_backend_touch();
+        const auto warmup_ms =
+            std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - warmup_start)
+                .count();
+        std::cout << "[TIME] ready_warmup_ms=" << warmup_ms << std::endl;
+        if (rc != 0) throw std::runtime_error("llama_decode failed in ready warmup");
     }
 
     std::vector<PredictResult> predict(const std::u16string& context,
@@ -258,6 +294,24 @@ private:
 
     static double ms(long long us) {
         return static_cast<double>(us) / 1000.0;
+    }
+
+    static llama_token warmup_token() {
+        const llama_vocab* vocab = ModelManager::instance().vocab();
+        const llama_token candidates[] = {
+            llama_vocab_bos(vocab),
+            llama_vocab_eos(vocab),
+            llama_vocab_nl(vocab),
+            llama_vocab_pad(vocab),
+        };
+        for (llama_token token : candidates) {
+            if (token >= 0) return token;
+        }
+        return 0;
+    }
+
+    void mark_backend_touch() {
+        last_backend_touch = std::chrono::steady_clock::now();
     }
 
     static void print_timing(const PredictTiming& timing) {
@@ -365,6 +419,7 @@ private:
 
         const auto decode_start = std::chrono::steady_clock::now();
         int rc = llama_decode(llama_ctx.get(), batch);
+        if (rc == 0) mark_backend_touch();
         timing.step_decode_us += elapsed_us(decode_start);
 
         const auto free_start = std::chrono::steady_clock::now();
@@ -413,6 +468,7 @@ private:
 
             const auto decode_start = std::chrono::steady_clock::now();
             int rc = llama_decode(llama_ctx.get(), batch);
+            if (rc == 0) mark_backend_touch();
             timing.cache_decode_us += elapsed_us(decode_start);
 
             const auto free_start = std::chrono::steady_clock::now();
