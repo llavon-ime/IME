@@ -36,6 +36,7 @@ models/*
 hf_model_card/*
 python_probe/*
 benchmarks/*
+__pycache__/
 
 # release models
 # !models/model.gguf

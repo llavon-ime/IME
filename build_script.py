@@ -1,5 +1,6 @@
 ﻿from pathlib import Path
 from datetime import datetime
+import os
 import subprocess
 
 root = Path(__file__).resolve().parent
@@ -20,6 +21,38 @@ for p in temp.glob("*.dll"):
 build_dir = root / "build" / configure_preset
 tsf_dir = build_dir / "tsf" / build_config
 tsf_dll = tsf_dir / "MyIME.dll"
+service_exe = build_dir / "service" / build_config / "IME_Service.exe"
+
+
+def stop_running_exe(exe: Path) -> None:
+    if not exe.exists():
+        return
+
+    script = (
+        "$target = [System.IO.Path]::GetFullPath($env:IME_SERVICE_TARGET); "
+        "Get-CimInstance Win32_Process -Filter \"Name = 'IME_Service.exe'\" | "
+        "Where-Object { "
+        "    $_.ExecutablePath -and "
+        "    ([System.IO.Path]::GetFullPath($_.ExecutablePath) -ieq $target) "
+        "} | "
+        "ForEach-Object { "
+        "    Write-Host \"Stopping running service process PID $($_.ProcessId): $($_.ExecutablePath)\"; "
+        "    Stop-Process -Id $_.ProcessId -Force -ErrorAction Stop "
+        "}"
+    )
+    subprocess.run(
+        [
+            "powershell.exe",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-Command",
+            script,
+        ],
+        cwd=root,
+        env={**os.environ, "IME_SERVICE_TARGET": str(exe.resolve())},
+        check=True,
+    )
 
 current = sorted(str(p.relative_to(root)).replace("\\", "/") for p in src.rglob("*") if p.is_file())
 
@@ -36,6 +69,8 @@ if tsf_dll.exists():
         i += 1
     print(f"Moving previous TSF DLL out of the build output: {tsf_dll} -> {bak}")
     tsf_dll.replace(bak)
+
+stop_running_exe(service_exe)
 
 subprocess.run(["cmake", "--build", "--preset", build_preset], cwd=root, check=True)
 if not tsf_dll.exists():
