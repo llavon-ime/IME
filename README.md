@@ -18,6 +18,9 @@ python build_script.py
 or
 .\dev.bat
 
+# getting start
+請務必在開始使用本輸入法時，先手動啟用service.exe否則會感覺不到任何推論。
+
 # 查看所有可用 preset
 cmake --list-presets
 cmake --build --list-presets
