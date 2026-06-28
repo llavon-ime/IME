@@ -34,7 +34,7 @@ public:
         if (!pbstrDescription) {
             return E_INVALIDARG;
         }
-        *pbstrDescription = SysAllocString(L"IME Candidate List");
+        *pbstrDescription = SysAllocString(L"拉風輸入法候選字");
         return (*pbstrDescription != nullptr) ? S_OK : E_OUTOFMEMORY;
     }
 

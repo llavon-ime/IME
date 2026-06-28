@@ -226,7 +226,7 @@ private:
         const auto [width, height] = client_size();
         DebugSink::instance().send(L"UI", L"CandidateWindow::ensure_window creating size=(" + std::to_wstring(width) +
                                               L"," + std::to_wstring(height) + L")");
-        if (!create(WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE, WS_POPUP, L"IME Candidate List", CW_USEDEFAULT,
+        if (!create(WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE, WS_POPUP, L"拉風輸入法候選字", CW_USEDEFAULT,
                     CW_USEDEFAULT, width, height)) {
             DebugSink::instance().send(L"UI", L"CandidateWindow::ensure_window create failed");
             return false;

@@ -32,7 +32,7 @@ struct Globals {
     /**
      * @brief Text Service description name
      */
-    inline constexpr static wchar_t text_service_description[] = L"A TSF IME " __DATE__ " " __TIME__;
+    inline constexpr static wchar_t text_service_description[] = L"拉風輸入法";
 };
 
 }  // namespace tsf

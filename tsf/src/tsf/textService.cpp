@@ -48,7 +48,7 @@ public:
         if (!pbstrDesc) {
             return E_INVALIDARG;
         }
-        *pbstrDesc = SysAllocString(L"Composition");
+        *pbstrDesc = SysAllocString(L"拉風輸入法組字");
         return (*pbstrDesc != nullptr) ? S_OK : E_OUTOFMEMORY;
     }
 

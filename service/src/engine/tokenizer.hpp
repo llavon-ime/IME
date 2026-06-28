@@ -2,6 +2,7 @@
 
 #include <utf8/cpp20.h>
 
+#include <cstddef>
 #include <filesystem>
 #include <rfl/json.hpp>
 #include <source_location>
@@ -48,6 +49,14 @@ class Tokenizer {
     static bool is_latin_char(int c) { return is_alpha(c) || is_digit(c) || c == '-' || c == '_' || c == '+'; }
     static char to_lower(int c) { return (c >= 'A' && c <= 'Z') ? char(c ^ 0x20) : char(c); }
 
+    static void remove_leading_unknown_context_tokens(std::vector<int>& context_tokens, int unknown_token) {
+        size_t first_kept = 0;
+        while (first_kept < context_tokens.size() && context_tokens[first_kept] == unknown_token) first_kept++;
+        if (first_kept == 0) return;
+
+        context_tokens.erase(context_tokens.begin(), context_tokens.begin() + static_cast<std::ptrdiff_t>(first_kept));
+    }
+
 public:
     static Tokenizer& instance() {
         static Tokenizer tokenizer;
@@ -64,15 +73,16 @@ public:
     std::vector<int> tokenize(const std::u16string& context16, const std::vector<PaddingEntry>& padding) {
         std::vector<int> res;
         res.push_back(special_table.at("<BOS>"));
+        std::vector<int> context_tokens;
         std::string context8 = utf8::utf16to8(context16);
         std::u32string context = utf8::utf8to32(context8);
         for (size_t i = 0; i < context.size(); i++) {
             std::string s;
             utf8::append(context[i], s);
             if (context[i] == U' ') {
-                res.push_back(special_table.at("<SP>"));
+                context_tokens.push_back(special_table.at("<SP>"));
             } else if (char_table.contains(s)) {
-                res.push_back(char_table.at(s));
+                context_tokens.push_back(char_table.at(s));
             } else if (is_latin_char(context[i])) {
                 std::string str;
                 for (; i < context.size(); i++) {
@@ -84,14 +94,16 @@ public:
                     }
                 }
                 if (latin_table.contains(str)) {
-                    res.push_back(latin_table.at(str));
+                    context_tokens.push_back(latin_table.at(str));
                 } else {
-                    res.push_back(special_table.at("<LATIN>"));
+                    context_tokens.push_back(special_table.at("<LATIN>"));
                 }
             } else {
-                res.push_back(special_table.at("<UNK>"));
+                context_tokens.push_back(special_table.at("<UNK>"));
             }
         }
+        remove_leading_unknown_context_tokens(context_tokens, special_table.at("<UNK>"));
+        res.insert(res.end(), context_tokens.begin(), context_tokens.end());
         for (auto& entry : padding) {
             if (entry.is_chosen) {
                 std::string s;
