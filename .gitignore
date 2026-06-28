@@ -32,6 +32,7 @@ vcpkg_installed/
 .dataset/
 .temp/
 .tool/
+.superpowers/
 models/*
 hf_model_card/*
 python_probe/*
@@ -44,6 +45,5 @@ __pycache__/
 reports/
 
 llama-*
-
-
+linux/third_party/llama.cpp/
 
