@@ -52,8 +52,6 @@ Package names vary by distribution. Install these before configuring:
 - pkg-config
 - fcitx5 runtime and development headers
 
-Linux dependencies managed by vcpkg are declared in `linux/vcpkg.json`. During configure, vcpkg downloads and builds `llama-cpp` and `nlohmann-json`; `linux/third_party/llama.cpp` is only a local checkout and is ignored by Git.
-
 Example package sets:
 
 ```bash
@@ -147,6 +145,6 @@ fcitx5 會將設定儲存在 `~/.config/fcitx5/conf/ime-linux.conf`。設定介�
 ## Linux troubleshooting
 
 - If CMake skips `ime-fcitx5-addon`, install the fcitx5 development package and reconfigure from a clean build directory.
-- If `IME_LINUX_ENABLE_ROCM=ON` fails, verify `hipcc` is on `PATH` or use `-DIME_LINUX_ENABLE_ROCM=AUTO` or `OFF`.
+- If the Vulkan build fails, verify Vulkan development packages and drivers are installed, or use the CPU build.
 - If no model loads, verify the `.gguf` path exists and is readable. There is no automatic model download.
 - If the service cannot be spawned by the 拉風輸入法 addon, verify `ime-linux-service` is installed in `/usr/local/bin` or `/usr/bin`, or set `IME_LINUX_SERVICE_PATH` to the built service binary for local testing.
