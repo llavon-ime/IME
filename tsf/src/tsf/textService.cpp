@@ -1119,7 +1119,91 @@ void TextService::show_candidate_list(BopomofoPos& bopomofoPos, ITfContext* pCon
 }
 
 inline constexpr LONG kMaxPreCompositionContextChars = 256;
-inline constexpr ULONG kRangeReadChunkChars = 64;
+inline constexpr ULONG kRangeReadChunkChars = 128;
+
+bool append_range_text(TfEditCookie ec, ITfRange* range, std::u16string& context) {
+    if (!range) {
+        return false;
+    }
+
+    std::array<WCHAR, kRangeReadChunkChars> chunk = {};
+    while (true) {
+        ULONG copied = 0;
+        const HRESULT hr = range->GetText(ec, TF_TF_MOVESTART, chunk.data(), static_cast<ULONG>(chunk.size()), &copied);
+        if (FAILED(hr)) {
+            return false;
+        }
+        if (copied == 0) {
+            return true;
+        }
+
+        context.append(reinterpret_cast<const char16_t*>(chunk.data()), copied);
+        if (copied < chunk.size()) {
+            return true;
+        }
+    }
+}
+
+bool read_pre_context_with_acp(TfEditCookie ec, ITfRange* anchor_range, std::u16string& context) {
+    if (!anchor_range) {
+        return false;
+    }
+
+    winrt::com_ptr<ITfRangeACP> anchor_acp;
+    if (FAILED(anchor_range->QueryInterface(IID_PPV_ARGS(anchor_acp.put())))) {
+        return false;
+    }
+
+    LONG anchor_start = 0;
+    LONG anchor_length = 0;
+    if (FAILED(anchor_acp->GetExtent(&anchor_start, &anchor_length))) {
+        return false;
+    }
+    if (anchor_start <= 0) {
+        return true;
+    }
+
+    const LONG start = std::max<LONG>(0, anchor_start - kMaxPreCompositionContextChars);
+    const LONG length = anchor_start - start;
+    if (length <= 0) {
+        return true;
+    }
+
+    winrt::com_ptr<ITfRange> read_range;
+    if (FAILED(anchor_range->Clone(read_range.put())) || !read_range) {
+        return false;
+    }
+
+    winrt::com_ptr<ITfRangeACP> read_acp;
+    if (FAILED(read_range->QueryInterface(IID_PPV_ARGS(read_acp.put())))) {
+        return false;
+    }
+    if (FAILED(read_acp->SetExtent(start, length))) {
+        return false;
+    }
+
+    context.clear();
+    return append_range_text(ec, read_range.get(), context);
+}
+
+bool read_pre_context_with_shift(TfEditCookie ec, ITfRange* anchor_range, std::u16string& context) {
+    if (!anchor_range) {
+        return false;
+    }
+
+    winrt::com_ptr<ITfRange> read_range;
+    if (FAILED(anchor_range->Clone(read_range.put())) || !read_range) {
+        return false;
+    }
+
+    LONG shifted = 0;
+    if (FAILED(read_range->ShiftStart(ec, -kMaxPreCompositionContextChars, &shifted, nullptr))) {
+        return false;
+    }
+
+    context.clear();
+    return append_range_text(ec, read_range.get(), context);
+}
 
 std::u16string TextService::get_pre_composit_context(ITfContext* pContext) {
     if (!pContext) {
@@ -1145,23 +1229,8 @@ std::u16string TextService::get_pre_composit_context(ITfContext* pContext) {
         }
 
         anchor_range->Collapse(ec, TF_ANCHOR_START) | win::check();
-
-        LONG shifted = 0;
-        anchor_range->ShiftStart(ec, -kMaxPreCompositionContextChars, &shifted, nullptr) | win::check();
-
-        std::array<WCHAR, kRangeReadChunkChars> chunk = {};
-        while (true) {
-            ULONG copied = 0;
-            anchor_range->GetText(ec, TF_TF_MOVESTART, chunk.data(), static_cast<ULONG>(chunk.size()), &copied) |
-                win::check();
-            if (copied == 0) {
-                break;
-            }
-
-            context.append(reinterpret_cast<const char16_t*>(chunk.data()), copied);
-            if (copied < chunk.size()) {
-                break;
-            }
+        if (!read_pre_context_with_acp(ec, anchor_range.get(), context)) {
+            read_pre_context_with_shift(ec, anchor_range.get(), context);
         }
     });
 
