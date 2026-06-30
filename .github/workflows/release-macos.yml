@@ -138,8 +138,8 @@ jobs:
           mkdir -p models
           model_path="models/${MODEL_FILE_NAME}"
           python -m gdown \
-            --id "${MODEL_FILE_ID}" \
-            --output "${model_path}"
+            "${MODEL_FILE_ID}" \
+            -O "${model_path}"
           test -s "${model_path}"
           case "${model_path}" in
             *.gguf) ;;
