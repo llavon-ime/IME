@@ -1,7 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=拉風輸入法設定
-Comment=設定拉風輸入法 fcitx5 輸入法
-Exec=ime-linux-config
-Icon=input-keyboard
-Categories=Settings;Utility;

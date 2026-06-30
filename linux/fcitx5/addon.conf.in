@@ -1,8 +1,0 @@
-[Addon]
-Name=ime-linux
-Category=InputMethod
-Version=@PROJECT_VERSION@
-Library=ime-fcitx5-addon
-Type=SharedLibrary
-OnDemand=True
-Configurable=True

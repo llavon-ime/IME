@@ -4,6 +4,7 @@ CMakeUserPresets.json
 # CMake 產生的建置目錄
 build/
 out/
+dist/
 cmake-build-*/
 
 #vcpkg
@@ -26,6 +27,7 @@ vcpkg_installed/
 *.ime
 
 # 其他
+.DS_Store
 *.user
 *.suo
 .cache/
@@ -45,5 +47,4 @@ __pycache__/
 reports/
 
 llama-*
-linux/third_party/llama.cpp/
-
+fcitx5/third_party/llama.cpp/

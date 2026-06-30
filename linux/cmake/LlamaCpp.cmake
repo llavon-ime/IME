@@ -1,5 +1,0 @@
-function(ime_linux_configure_llama target_name)
-    find_package(llama CONFIG REQUIRED)
-    target_link_libraries(${target_name} PRIVATE llama)
-    target_compile_definitions(${target_name} PRIVATE IME_LINUX_HAS_LLAMA=1)
-endfunction()

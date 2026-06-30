@@ -1,11 +1,7 @@
 {
   "dependencies": [
-    "cppwinrt",
-    "jsoncons",
     "llama-cpp",
-    "reflectcpp",
-    "utfcpp",
-    "asio"
+    "nlohmann-json"
   ],
   "features": {
     "llama-vulkan": {
