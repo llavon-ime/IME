@@ -34,7 +34,7 @@ int run_config_tests() {
     auto cfg = ime::fcitx5::default_config();
     ok = ok && cfg.context_length == 512;
     ok = ok && cfg.thread_count >= 1;
-    ok = ok && cfg.gpu_layers == 0;
+    ok = ok && cfg.gpu_layers == 999;
     ok = ok && cfg.idle_timeout_seconds == 1800;
     ok = ok && cfg.keyboard_layout == "standard";
     ok = ok && cfg.selection_keys == "123456789";

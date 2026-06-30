@@ -127,7 +127,7 @@ cmake --build build/macos-metal
 cmake --install build/macos-metal
 ```
 
-After installing a Metal build, set `顯示卡分層數` (`GpuLayers`) above `0` in the fcitx configuration to offload model layers to the GPU. Use a large value such as `999` if you want llama.cpp to offload all supported layers.
+The fcitx5 default `顯示卡分層數` (`GpuLayers`) is `999` so llama.cpp offloads all supported layers to the available GPU backend. Set it to `0` in the fcitx configuration if you want CPU-only inference.
 
 If you already cloned fcitx5-macos without submodules, run `git -C ../fcitx5-macos submodule update --init fcitx5` before configuring.
 
@@ -235,7 +235,7 @@ fcitx5 會將設定儲存在 `~/.config/fcitx5/conf/ime-fcitx5.conf`。設定介
 - `模型路徑`: 本機 `.gguf` 模型路徑
 - `上下文長度`: 推論上下文長度
 - `執行緒數`: 處理器推論執行緒數
-- `顯示卡分層數`: 要卸載到顯示卡後端的模型層數
+- `顯示卡分層數`: 要卸載到顯示卡後端的模型層數，fcitx5 預設為 `999`
 - `閒置逾時秒數`: 服務閒置多久後可退出
 - `注音鍵盤配置`: `標準`
 - `候選選字鍵`: `數字鍵`, `本位列`, 或 `左手鍵`
