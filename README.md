@@ -185,7 +185,7 @@ sudo ./packaging/macos/uninstall.sh
 
 ## macOS release automation
 
-The GitHub Actions workflow `.github/workflows/release-macos.yml` publishes a package when a `v*` tag is pushed. It builds the macOS arm64 package, uploads it to the matching GitHub Release, computes the package sha256, and updates the Homebrew Cask in `billy948787/homebrew-la-fong`.
+The GitHub Actions workflow `.github/workflows/release-macos.yml` publishes a package when a `v*` tag is pushed. It downloads the bundled GGUF model from Google Drive, builds the macOS arm64 package, uploads it to the matching GitHub Release, computes the package sha256, and updates the Homebrew Cask in `billy948787/homebrew-la-fong`.
 
 Required GitHub secret:
 

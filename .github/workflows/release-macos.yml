@@ -16,6 +16,8 @@ permissions:
 
 env:
   FCITX5_MACOS_VERSION: "0.3.4"
+  MODEL_FILE_ID: "1cPvtxCcCNy56cQazP052YQz9QzjeLrWS"
+  MODEL_FILE_NAME: "bopomofo-ime-llama-250m-Q4_K_M.gguf"
   HOMEBREW_TAP_REPO: "billy948787/homebrew-la-fong"
   HOMEBREW_CASK_PATH: "Casks/ime-fcitx5.rb"
 
@@ -125,6 +127,24 @@ jobs:
           security list-keychains -d user -s "${keychain_path}" login.keychain-db
           security default-keychain -s "${keychain_path}"
           security set-key-partition-list -S apple-tool:,apple: -s -k "${KEYCHAIN_PASSWORD}" "${keychain_path}"
+
+      - name: Download bundled model
+        run: |
+          set -euo pipefail
+          python3 -m pip install --user gdown
+          mkdir -p models
+          model_path="models/${MODEL_FILE_NAME}"
+          python3 -m gdown \
+            --id "${MODEL_FILE_ID}" \
+            --output "${model_path}"
+          test -s "${model_path}"
+          case "${model_path}" in
+            *.gguf) ;;
+            *)
+              echo "Downloaded model must use the .gguf extension: ${model_path}" >&2
+              exit 1
+              ;;
+          esac
 
       - name: Build package
         id: package
