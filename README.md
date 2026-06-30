@@ -2,6 +2,22 @@
 
 拉風輸入法是一個中文輸入法專案，目前包含 Windows TSF 前端，以及 Linux/macOS 可用的 fcitx5 前端。fcitx5 版本會啟動本機推論服務，使用 `.gguf` 模型輔助候選字排序。
 
+## macOS 安裝
+
+目前 macOS 安裝包先提供 Apple Silicon `arm64` 版本。
+
+建議使用 Homebrew 安裝：
+
+```bash
+brew install --cask billy948787/la-fong/ime-fcitx5
+```
+
+安裝後重新啟動 fcitx5-macos，或登出後重新登入，接著在 fcitx5 設定中加入並啟用 `拉風輸入法`。
+
+如果不使用 Homebrew，也可以先安裝 [fcitx5-macos](https://github.com/fcitx/fcitx5-macos/releases)，再到本專案 GitHub Releases 下載最新的 `ime-fcitx5-*-arm64.pkg` 並手動安裝。
+
+安裝包會包含預設模型；一般使用者不需要另外設定 `ModelPath`。如果 macOS 擋下未識別開發者的安裝包，請到 `系統設定` > `隱私權與安全性` 允許開啟。
+
 ## 模型
 
 目前測試用模型暫放於 Google Drive：
