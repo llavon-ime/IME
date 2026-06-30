@@ -131,10 +131,13 @@ jobs:
       - name: Download bundled model
         run: |
           set -euo pipefail
-          python3 -m pip install --user gdown
+          python3 -m venv "${RUNNER_TEMP}/gdown-venv"
+          source "${RUNNER_TEMP}/gdown-venv/bin/activate"
+          python -m pip install --upgrade pip
+          python -m pip install gdown
           mkdir -p models
           model_path="models/${MODEL_FILE_NAME}"
-          python3 -m gdown \
+          python -m gdown \
             --id "${MODEL_FILE_ID}" \
             --output "${model_path}"
           test -s "${model_path}"
