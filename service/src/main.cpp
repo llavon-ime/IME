@@ -25,6 +25,13 @@ enum class EngineBackend {
     Onnx,
 };
 
+enum class ServicePriority {
+    Normal,
+    AboveNormal,
+    High,
+    Realtime,
+};
+
 enum class PipeCommand : uint8_t {
     Predict = 1,
     ToggleInputMode = 2,
@@ -69,6 +76,80 @@ static const char* backend_name(EngineBackend backend) {
         case EngineBackend::Llama:
         default:
             return "llama";
+    }
+}
+
+static ServicePriority selected_service_priority() {
+    char env[32]{};
+    const DWORD len = GetEnvironmentVariableA("IME_SERVICE_PRIORITY", env, static_cast<DWORD>(sizeof(env)));
+    if (len == 0 || len >= sizeof(env)) {
+        return ServicePriority::High;
+    }
+
+    const std::string_view value(env, len);
+    if (value == "normal") {
+        return ServicePriority::Normal;
+    }
+    if (value == "above_normal" || value == "above-normal") {
+        return ServicePriority::AboveNormal;
+    }
+    if (value == "realtime" || value == "real-time") {
+        return ServicePriority::Realtime;
+    }
+    return ServicePriority::High;
+}
+
+static const char* priority_name(ServicePriority priority) {
+    switch (priority) {
+        case ServicePriority::Normal:
+            return "normal";
+        case ServicePriority::AboveNormal:
+            return "above_normal";
+        case ServicePriority::Realtime:
+            return "realtime";
+        case ServicePriority::High:
+        default:
+            return "high";
+    }
+}
+
+static void configure_windows_scheduling(ServicePriority priority) {
+    DWORD priority_class = HIGH_PRIORITY_CLASS;
+    int thread_priority = THREAD_PRIORITY_HIGHEST;
+
+    switch (priority) {
+        case ServicePriority::Normal:
+            priority_class = NORMAL_PRIORITY_CLASS;
+            thread_priority = THREAD_PRIORITY_NORMAL;
+            break;
+        case ServicePriority::AboveNormal:
+            priority_class = ABOVE_NORMAL_PRIORITY_CLASS;
+            thread_priority = THREAD_PRIORITY_ABOVE_NORMAL;
+            break;
+        case ServicePriority::Realtime:
+            priority_class = REALTIME_PRIORITY_CLASS;
+            thread_priority = THREAD_PRIORITY_TIME_CRITICAL;
+            break;
+        case ServicePriority::High:
+        default:
+            priority_class = HIGH_PRIORITY_CLASS;
+            thread_priority = THREAD_PRIORITY_HIGHEST;
+            break;
+    }
+
+    if (!SetPriorityClass(GetCurrentProcess(), priority_class)) {
+        std::cerr << "[WARN] SetPriorityClass failed: " << GetLastError() << std::endl;
+    }
+    if (!SetThreadPriority(GetCurrentThread(), thread_priority)) {
+        std::cerr << "[WARN] SetThreadPriority failed: " << GetLastError() << std::endl;
+    }
+
+    PROCESS_POWER_THROTTLING_STATE throttling{};
+    throttling.Version = PROCESS_POWER_THROTTLING_CURRENT_VERSION;
+    throttling.ControlMask = PROCESS_POWER_THROTTLING_EXECUTION_SPEED;
+    throttling.StateMask = 0;
+    if (!SetProcessInformation(GetCurrentProcess(), ProcessPowerThrottling, &throttling, sizeof(throttling))) {
+        std::cerr << "[WARN] disabling process power throttling failed: " << GetLastError() << std::endl;
     }
 }
 
@@ -302,6 +383,9 @@ static asio::awaitable<void> listener(asio::io_context& io_ctx, EngineBackend ba
 int main() {
     SetConsoleOutputCP(65001);
     std::cerr << "[SRV] IME Service starting" << std::endl;
+    const ServicePriority priority = selected_service_priority();
+    configure_windows_scheduling(priority);
+    std::cerr << "[SRV] service priority: " << priority_name(priority) << std::endl;
     const EngineBackend backend = selected_engine_backend();
     std::cerr << "[SRV] engine backend: " << backend_name(backend) << std::endl;
 
