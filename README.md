@@ -9,7 +9,7 @@
 建議使用 Homebrew 安裝：
 
 ```bash
-brew install --cask billy948787/llavon-ime/llavon-ime
+brew install --cask llavon-ime/llavon-ime/llavon-ime
 ```
 
 安裝後重新啟動 fcitx5-macos，或登出後重新登入，接著在 fcitx5 設定中加入並啟用 `拉風輸入法`。

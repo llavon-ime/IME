@@ -18,7 +18,7 @@ env:
   FCITX5_MACOS_VERSION: "0.3.4"
   MODEL_FILE_ID: "1cPvtxCcCNy56cQazP052YQz9QzjeLrWS"
   MODEL_FILE_NAME: "llavon-ime-llama-250m-Q4_K_M.gguf"
-  HOMEBREW_TAP_REPO: "billy948787/homebrew-llavon-ime"
+  HOMEBREW_TAP_REPO: "llavon-ime/homebrew-llavon-ime"
   HOMEBREW_CASK_PATH: "Casks/llavon-ime.rb"
 
 jobs:
