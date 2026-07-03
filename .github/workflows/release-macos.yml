@@ -17,9 +17,9 @@ permissions:
 env:
   FCITX5_MACOS_VERSION: "0.3.4"
   MODEL_FILE_ID: "1cPvtxCcCNy56cQazP052YQz9QzjeLrWS"
-  MODEL_FILE_NAME: "bopomofo-ime-llama-250m-Q4_K_M.gguf"
-  HOMEBREW_TAP_REPO: "billy948787/homebrew-la-fong"
-  HOMEBREW_CASK_PATH: "Casks/ime-fcitx5.rb"
+  MODEL_FILE_NAME: "llavon-ime-llama-250m-Q4_K_M.gguf"
+  HOMEBREW_TAP_REPO: "billy948787/homebrew-llavon-ime"
+  HOMEBREW_CASK_PATH: "Casks/llavon-ime.rb"
 
 jobs:
   release-macos:
@@ -157,8 +157,8 @@ jobs:
           FCITX5_MACOS_SOURCE_DIR="${RUNNER_TEMP}/fcitx5-macos" \
           ./scripts/package-macos.sh
 
-          unsigned_pkg="dist/macos/ime-fcitx5-${{ steps.version.outputs.version }}-arm64.pkg"
-          signed_pkg="dist/macos/ime-fcitx5-${{ steps.version.outputs.version }}-arm64-signed.pkg"
+          unsigned_pkg="dist/macos/llavon-ime-${{ steps.version.outputs.version }}-arm64.pkg"
+          signed_pkg="dist/macos/llavon-ime-${{ steps.version.outputs.version }}-arm64-signed.pkg"
           if [[ -f "${signed_pkg}" ]]; then
             mv "${signed_pkg}" "${unsigned_pkg}"
           fi
@@ -247,5 +247,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add "${HOMEBREW_CASK_PATH}"
-          git commit -m "Update ime-fcitx5 to ${{ steps.version.outputs.version }}"
+          git commit -m "Update llavon-ime to ${{ steps.version.outputs.version }}"
           git push

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(IME_Fcitx5 VERSION 0.1.0 LANGUAGES CXX)
+project(llavon-ime VERSION 0.1.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -10,13 +10,13 @@ include(GNUInstallDirs)
 set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
 
 option(IME_FCITX5_BUILD_TESTS "Build fcitx5 tests" ON)
-set(IME_FCITX5_SERVICE_NAME "ime-fcitx5-service" CACHE STRING "Installed fcitx5 service executable name")
+set(IME_FCITX5_SERVICE_NAME "llavon-ime-service" CACHE STRING "Installed fcitx5 service executable name")
 set(IME_FCITX5_FCITX_PLUGIN_DIR "plugin" CACHE STRING "macOS fcitx5-macos plugin metadata install directory")
 set(IME_FCITX5_INSTALLED_MODEL_PATH "" CACHE FILEPATH "Installed default GGUF model path")
 
 set(IME_FCITX5_INSTALLED_SERVICE_PATH "${CMAKE_INSTALL_FULL_BINDIR}/${IME_FCITX5_SERVICE_NAME}")
-set(IME_FCITX5_INSTALLED_TABLE_DIR "${CMAKE_INSTALL_FULL_DATADIR}/ime/tables")
-set(IME_FCITX5_INSTALLED_TABLE_PATH "${CMAKE_INSTALL_FULL_DATADIR}/ime/tables/bopomofo_char.json")
+set(IME_FCITX5_INSTALLED_TABLE_DIR "${CMAKE_INSTALL_FULL_DATADIR}/llavon-ime/tables")
+set(IME_FCITX5_INSTALLED_TABLE_PATH "${CMAKE_INSTALL_FULL_DATADIR}/llavon-ime/tables/bopomofo_char.json")
 
 include(LlamaCpp)
 
@@ -73,22 +73,15 @@ target_compile_definitions(ime_fcitx5_service_lib PRIVATE
 target_compile_options(ime_fcitx5_service_lib PRIVATE -Wall -Wextra -Wpedantic)
 ime_fcitx5_configure_llama(ime_fcitx5_service_lib)
 
-add_executable(ime-fcitx5-service service/service_main.cpp)
-target_link_libraries(ime-fcitx5-service PRIVATE ime_fcitx5_service_lib asio::asio)
-set_target_properties(ime-fcitx5-service PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/service")
-install(TARGETS ime-fcitx5-service RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
+add_executable(llavon-ime-service service/service_main.cpp)
+target_link_libraries(llavon-ime-service PRIVATE ime_fcitx5_service_lib asio::asio)
+set_target_properties(llavon-ime-service PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/service")
+install(TARGETS llavon-ime-service RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
 install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/../tables/bopomofo_char.json"
-        DESTINATION "${CMAKE_INSTALL_DATADIR}/ime/tables")
+        DESTINATION "${CMAKE_INSTALL_DATADIR}/llavon-ime/tables")
 install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../tables/tokens"
-        DESTINATION "${CMAKE_INSTALL_DATADIR}/ime/tables"
+        DESTINATION "${CMAKE_INSTALL_DATADIR}/llavon-ime/tables"
         FILES_MATCHING PATTERN "*.json")
-install(CODE "
-    file(REMOVE \"\$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR}/ime-fcitx5-config\")
-    file(REMOVE \"\$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR}/ime-linux-service\")
-    file(REMOVE \"\$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR}/ime-linux-config\")
-    file(REMOVE \"\$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_DATADIR}/applications/ime-fcitx5-config.desktop\")
-    file(REMOVE \"\$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_DATADIR}/applications/ime-linux-config.desktop\")
-")
 
 find_package(Fcitx5 QUIET)
 if(Fcitx5_FOUND)
@@ -112,36 +105,29 @@ if(Fcitx5_FOUND)
         set(IME_FCITX5_FCITX_PLUGIN_INSTALL_PATH "${CMAKE_INSTALL_PREFIX}/${IME_FCITX5_FCITX_PLUGIN_DIR}")
     endif()
 
-    add_library(ime-fcitx5-addon MODULE fcitx5/ime_engine.cpp fcitx5/ime_config.cpp)
-    target_include_directories(ime-fcitx5-addon PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
-    target_link_libraries(ime-fcitx5-addon PRIVATE Fcitx5::Core ime_fcitx5_shared)
-    target_compile_definitions(ime-fcitx5-addon PRIVATE
+    add_library(llavon-ime-addon MODULE fcitx5/ime_engine.cpp fcitx5/ime_config.cpp)
+    target_include_directories(llavon-ime-addon PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+    target_link_libraries(llavon-ime-addon PRIVATE Fcitx5::Core ime_fcitx5_shared)
+    target_compile_definitions(llavon-ime-addon PRIVATE
         IME_FCITX5_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
         IME_FCITX5_INSTALLED_TABLE_PATH="${IME_FCITX5_INSTALLED_TABLE_PATH}"
     )
-    target_compile_options(ime-fcitx5-addon PRIVATE -Wall -Wextra -Wpedantic)
-    set_target_properties(ime-fcitx5-addon PROPERTIES PREFIX "")
-    configure_file(fcitx5/addon.conf.in "${CMAKE_BINARY_DIR}/fcitx5/addon/ime-fcitx5.conf" @ONLY)
-    configure_file(fcitx5/inputmethod.conf.in "${CMAKE_BINARY_DIR}/fcitx5/inputmethod/ime-fcitx5.conf" @ONLY)
-    install(TARGETS ime-fcitx5-addon LIBRARY DESTINATION "${IME_FCITX5_FCITX_ADDONDIR}")
-    install(FILES "${CMAKE_BINARY_DIR}/fcitx5/addon/ime-fcitx5.conf"
+    target_compile_options(llavon-ime-addon PRIVATE -Wall -Wextra -Wpedantic)
+    set_target_properties(llavon-ime-addon PROPERTIES PREFIX "")
+    configure_file(fcitx5/addon.conf.in "${CMAKE_BINARY_DIR}/fcitx5/addon/llavon-ime.conf" @ONLY)
+    configure_file(fcitx5/inputmethod.conf.in "${CMAKE_BINARY_DIR}/fcitx5/inputmethod/llavon-ime.conf" @ONLY)
+    install(TARGETS llavon-ime-addon LIBRARY DESTINATION "${IME_FCITX5_FCITX_ADDONDIR}")
+    install(FILES "${CMAKE_BINARY_DIR}/fcitx5/addon/llavon-ime.conf"
             DESTINATION "${IME_FCITX5_FCITX_PKGDATADIR}/addon")
-    install(FILES "${CMAKE_BINARY_DIR}/fcitx5/inputmethod/ime-fcitx5.conf"
+    install(FILES "${CMAKE_BINARY_DIR}/fcitx5/inputmethod/llavon-ime.conf"
             DESTINATION "${IME_FCITX5_FCITX_PKGDATADIR}/inputmethod")
-    install(CODE "
-        file(REMOVE \"\$ENV{DESTDIR}${IME_FCITX5_FCITX_PKGDATADIR_INSTALL_PATH}/addon/ime-linux.conf\")
-        file(REMOVE \"\$ENV{DESTDIR}${IME_FCITX5_FCITX_PKGDATADIR_INSTALL_PATH}/inputmethod/ime-linux.conf\")
-    ")
     if(APPLE)
-        configure_file(fcitx5/plugin.json.in "${CMAKE_BINARY_DIR}/fcitx5/plugin/ime-fcitx5.json" @ONLY)
-        install(FILES "${CMAKE_BINARY_DIR}/fcitx5/plugin/ime-fcitx5.json"
+        configure_file(fcitx5/plugin.json.in "${CMAKE_BINARY_DIR}/fcitx5/plugin/llavon-ime.json" @ONLY)
+        install(FILES "${CMAKE_BINARY_DIR}/fcitx5/plugin/llavon-ime.json"
                 DESTINATION "${IME_FCITX5_FCITX_PLUGIN_DIR}")
-        install(CODE "
-            file(REMOVE \"\$ENV{DESTDIR}${IME_FCITX5_FCITX_PLUGIN_INSTALL_PATH}/ime-linux.json\")
-        ")
     endif()
 else()
-    message(STATUS "fcitx5 development files not found; skipping ime-fcitx5-addon")
+    message(STATUS "fcitx5 development files not found; skipping llavon-ime-addon")
 endif()
 
 if(IME_FCITX5_BUILD_TESTS)

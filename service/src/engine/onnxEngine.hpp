@@ -187,7 +187,7 @@ class OnnxModelManager {
     }
 
 public:
-    OnnxModelManager() : _env(ORT_LOGGING_LEVEL_WARNING, "IME_Service") {
+    OnnxModelManager() : _env(ORT_LOGGING_LEVEL_WARNING, "llavon-ime") {
         load_sessions();
 
         if (_decode.input_names.empty() || _decode.output_names.empty()) {

@@ -4,10 +4,10 @@
     Unregisters the TSF IME from the system (calls regsvr32 /u) and removes it
     from the zh-Hant-TW input method list.
 .PARAMETER DllPath
-    Full path to MyIME.dll. Defaults to ..\build\x64-debug\src\Debug\MyIME.dll.
+    Full path to llavon-ime.dll. Defaults to ..\..\build\x64-debug\tsf\Debug\llavon-ime.dll.
 #>
 param(
-    [string]$DllPath = (Join-Path $PSScriptRoot "..\build\x64-debug\src\Debug\MyIME.dll")
+    [string]$DllPath = (Join-Path $PSScriptRoot "..\..\build\x64-debug\tsf\Debug\llavon-ime.dll")
 )
 
 $resolved = Resolve-Path $DllPath -ErrorAction SilentlyContinue

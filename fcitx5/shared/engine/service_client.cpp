@@ -24,7 +24,7 @@ namespace {
 constexpr std::uint32_t kMaxFramePayloadBytes = 1024 * 1024;
 
 #ifndef IME_FCITX5_SERVICE_NAME
-#define IME_FCITX5_SERVICE_NAME "ime-fcitx5-service"
+#define IME_FCITX5_SERVICE_NAME "llavon-ime-service"
 #endif
 
 ByteVector recv_message(const UnixSocketConnection& connection) {
@@ -39,14 +39,6 @@ ByteVector recv_message(const UnixSocketConnection& connection) {
 
 std::optional<std::filesystem::path> resolved_service_path() {
     if (const char* override = std::getenv("IME_FCITX5_SERVICE_PATH")) {
-        if (override[0] != '\0') {
-            std::filesystem::path path(override);
-            if (std::filesystem::exists(path)) return path;
-            return std::nullopt;
-        }
-    }
-
-    if (const char* override = std::getenv("IME_LINUX_SERVICE_PATH")) {
         if (override[0] != '\0') {
             std::filesystem::path path(override);
             if (std::filesystem::exists(path)) return path;

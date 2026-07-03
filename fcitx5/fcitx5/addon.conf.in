@@ -1,8 +1,8 @@
 [Addon]
-Name=ime-fcitx5
+Name=llavon-ime
 Category=InputMethod
 Version=@PROJECT_VERSION@
-Library=ime-fcitx5-addon
+Library=llavon-ime-addon
 Type=SharedLibrary
 OnDemand=True
 Configurable=True

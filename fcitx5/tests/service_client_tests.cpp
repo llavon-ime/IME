@@ -60,11 +60,11 @@ int run_service_client_tests() {
 
     const auto unique_suffix = std::to_string(getpid()) + "-" +
                                std::to_string(std::chrono::steady_clock::now().time_since_epoch().count());
-    const auto missing_service_path = std::filesystem::temp_directory_path() / ("ime-fcitx5-test-missing-service-" + unique_suffix);
+    const auto missing_service_path = std::filesystem::temp_directory_path() / ("llavon-ime-test-missing-service-" + unique_suffix);
     std::filesystem::remove(missing_service_path);
     ScopedEnv service_path_override("IME_FCITX5_SERVICE_PATH", missing_service_path.string());
 
-    const auto unavailable_socket = std::filesystem::temp_directory_path() / ("ime-fcitx5-client-unavailable-" + unique_suffix + ".sock");
+    const auto unavailable_socket = std::filesystem::temp_directory_path() / ("llavon-ime-client-unavailable-" + unique_suffix + ".sock");
     std::filesystem::remove(unavailable_socket);
     ime::fcitx5::ServiceClient client(unavailable_socket);
     ime::fcitx5::PredictRequest req;
@@ -94,7 +94,7 @@ int run_service_client_tests() {
         ok = ok && callback_state == ime::fcitx5::PredictState::Unavailable;
     }
 
-    const auto slow_socket = std::filesystem::temp_directory_path() / ("ime-fcitx5-client-slow-" + unique_suffix + ".sock");
+    const auto slow_socket = std::filesystem::temp_directory_path() / ("llavon-ime-client-slow-" + unique_suffix + ".sock");
     ime::fcitx5::UnixSocketServer server;
     server.bind_listen(slow_socket);
     std::thread server_thread([&server]() {
@@ -110,7 +110,7 @@ int run_service_client_tests() {
     ok = ok && elapsed < std::chrono::milliseconds(100);
     server_thread.join();
 
-    const auto stop_socket = std::filesystem::temp_directory_path() / ("ime-fcitx5-client-stop-" + unique_suffix + ".sock");
+    const auto stop_socket = std::filesystem::temp_directory_path() / ("llavon-ime-client-stop-" + unique_suffix + ".sock");
     ime::fcitx5::UnixSocketServer stop_server;
     stop_server.bind_listen(stop_socket);
     bool stop_seen = false;
@@ -130,7 +130,7 @@ int run_service_client_tests() {
     ok = ok && stop_seen;
     ok = ok && !stop_status.running;
 
-    const auto stopped_socket = std::filesystem::temp_directory_path() / ("ime-fcitx5-client-stopped-" + unique_suffix + ".sock");
+    const auto stopped_socket = std::filesystem::temp_directory_path() / ("llavon-ime-client-stopped-" + unique_suffix + ".sock");
     ime::fcitx5::UnixSocketServer stopped_server;
     stopped_server.bind_listen(stopped_socket);
     std::thread stopped_thread([&]() {

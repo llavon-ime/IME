@@ -7,18 +7,18 @@ namespace ime::fcitx5 {
 
 namespace {
 
-const char* non_empty_env(const char* preferred, const char* fallback) {
-    if (const char* value = std::getenv(preferred); value != nullptr && value[0] != '\0') return value;
-    if (const char* value = std::getenv(fallback); value != nullptr && value[0] != '\0') return value;
+const char* non_empty_env(const char* name) {
+    if (const char* value = std::getenv(name); value != nullptr && value[0] != '\0') return value;
     return nullptr;
 }
 
 std::filesystem::path default_table_path() {
-    if (const char* override = non_empty_env("IME_FCITX5_TABLE_PATH", "IME_LINUX_TABLE_PATH")) return override;
+    if (const char* override = non_empty_env("IME_FCITX5_TABLE_PATH")) return override;
 #ifdef __APPLE__
     if (const char* home = std::getenv("HOME"); home != nullptr && home[0] != '\0') {
         const auto user_path =
-            std::filesystem::path(home) / "Library" / "fcitx5" / "share" / "ime" / "tables" / "bopomofo_char.json";
+            std::filesystem::path(home) / "Library" / "fcitx5" / "share" / "llavon-ime" / "tables" /
+            "bopomofo_char.json";
         if (std::filesystem::exists(user_path)) return user_path;
     }
 #endif
@@ -31,7 +31,7 @@ std::filesystem::path default_table_path() {
     if (std::filesystem::exists(installed_path)) return installed_path;
     return installed_path;
 #endif
-    return "/usr/share/ime/tables/bopomofo_char.json";
+    return "/usr/share/llavon-ime/tables/bopomofo_char.json";
 }
 
 }  // namespace

@@ -3,23 +3,23 @@ file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS "src/*.cpp")
 
 include_directories(src)
 
-add_executable(IME_Service ${SOURCES} ${HEADERS})
+add_executable(llavon-ime-service ${SOURCES} ${HEADERS})
 
 option(IMESVC_ENABLE_ONNX_BACKEND
-    "Build IME_Service with ONNX Runtime backend support."
+    "Build llavon-ime service with ONNX Runtime backend support."
     OFF)
 
 set(ONNXRUNTIME_NUGET_PACKAGE "Microsoft.ML.OnnxRuntime.DirectML" CACHE STRING
-    "Fallback ONNX Runtime NuGet package used by IME_Service for headers/import library")
+    "Fallback ONNX Runtime NuGet package used by llavon-ime service for headers/import library")
 set(ONNXRUNTIME_NUGET_VERSION "1.24.4" CACHE STRING
-    "Fallback ONNX Runtime NuGet package version used by IME_Service")
+    "Fallback ONNX Runtime NuGet package version used by llavon-ime service")
 set(ONNXRUNTIME_NUGET_ROOT
     "$ENV{USERPROFILE}/.nuget/packages/microsoft.ml.onnxruntime.directml/${ONNXRUNTIME_NUGET_VERSION}"
     CACHE PATH "Root directory of the fallback ONNX Runtime NuGet package")
 set(ONNXRUNTIME_ROOT "" CACHE PATH
     "Root directory of an ONNX Runtime install. Prefer Ryzen AI/VitisAI ONNX Runtime for NPU builds.")
 option(IMESVC_COPY_ONNXRUNTIME_DLLS
-    "Copy ONNX Runtime DLLs next to IME_Service so Windows loads the intended Ryzen AI/VitisAI runtime."
+    "Copy ONNX Runtime DLLs next to llavon-ime-service so Windows loads the intended Ryzen AI/VitisAI runtime."
     ON)
 
 if(IMESVC_ENABLE_ONNX_BACKEND)
@@ -63,31 +63,31 @@ if(IMESVC_ENABLE_ONNX_BACKEND)
     endif()
 
     if(ONNXRUNTIME_RUNTIME_ID AND EXISTS "${ONNXRUNTIME_INCLUDE_DIR}/onnxruntime_cxx_api.h" AND EXISTS "${ONNXRUNTIME_LIB}")
-        target_compile_definitions(IME_Service PRIVATE IMESVC_ENABLE_ONNX=1)
-        target_include_directories(IME_Service PRIVATE "${ONNXRUNTIME_INCLUDE_DIR}")
-        target_link_libraries(IME_Service PRIVATE "${ONNXRUNTIME_LIB}")
+        target_compile_definitions(llavon-ime-service PRIVATE IMESVC_ENABLE_ONNX=1)
+        target_include_directories(llavon-ime-service PRIVATE "${ONNXRUNTIME_INCLUDE_DIR}")
+        target_link_libraries(llavon-ime-service PRIVATE "${ONNXRUNTIME_LIB}")
 
         if(IMESVC_COPY_ONNXRUNTIME_DLLS)
             file(GLOB ONNXRUNTIME_RUNTIME_DLLS CONFIGURE_DEPENDS "${ONNXRUNTIME_NATIVE_DIR}/*.dll")
-            add_custom_command(TARGET IME_Service POST_BUILD
+            add_custom_command(TARGET llavon-ime-service POST_BUILD
                 COMMAND ${CMAKE_COMMAND} -E copy_if_different
                     ${ONNXRUNTIME_RUNTIME_DLLS}
-                    "$<TARGET_FILE_DIR:IME_Service>"
+                    "$<TARGET_FILE_DIR:llavon-ime-service>"
             )
         endif()
     else()
-        target_compile_definitions(IME_Service PRIVATE IMESVC_ENABLE_ONNX=0)
+        target_compile_definitions(llavon-ime-service PRIVATE IMESVC_ENABLE_ONNX=0)
         message(WARNING
             "ONNX Runtime native files were not found; ONNX backend is disabled. "
             "Checked ONNXRUNTIME_ROOT='${ONNXRUNTIME_ROOT}' and fallback package root='${ONNXRUNTIME_NUGET_ROOT}'"
         )
     endif()
 else()
-    target_compile_definitions(IME_Service PRIVATE IMESVC_ENABLE_ONNX=0)
+    target_compile_definitions(llavon-ime-service PRIVATE IMESVC_ENABLE_ONNX=0)
     message(STATUS "ONNX backend disabled by IMESVC_ENABLE_ONNX_BACKEND=OFF")
 endif()
 
-target_compile_definitions(IME_Service PRIVATE
+target_compile_definitions(llavon-ime-service PRIVATE
     WIN32_LEAN_AND_MEAN
     NOMINMAX
     UNICODE
@@ -96,7 +96,7 @@ target_compile_definitions(IME_Service PRIVATE
     _WIN32_WINNT=0x0A00
 )
 
-target_compile_options(IME_Service PRIVATE
+target_compile_options(llavon-ime-service PRIVATE
     /W4
     /WX
     /utf-8
@@ -109,7 +109,7 @@ find_package(utf8cpp CONFIG REQUIRED)
 find_package(llama CONFIG REQUIRED)
 find_package(asio CONFIG REQUIRED)
 
-target_link_libraries(IME_Service PRIVATE
+target_link_libraries(llavon-ime-service PRIVATE
     Microsoft::CppWinRT
     WindowsApp
     gdiplus

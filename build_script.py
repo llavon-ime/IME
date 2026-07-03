@@ -20,8 +20,8 @@ for p in temp.glob("*.dll"):
 
 build_dir = root / "build" / configure_preset
 tsf_dir = build_dir / "tsf" / build_config
-tsf_dll = tsf_dir / "MyIME.dll"
-service_exe = build_dir / "service" / build_config / "IME_Service.exe"
+tsf_dll = tsf_dir / "llavon-ime.dll"
+service_exe = build_dir / "service" / build_config / "llavon-ime-service.exe"
 
 
 def stop_running_exe(exe: Path) -> None:
@@ -29,8 +29,8 @@ def stop_running_exe(exe: Path) -> None:
         return
 
     script = (
-        "$target = [System.IO.Path]::GetFullPath($env:IME_SERVICE_TARGET); "
-        "Get-CimInstance Win32_Process -Filter \"Name = 'IME_Service.exe'\" | "
+        "$target = [System.IO.Path]::GetFullPath($env:LLAVON_IME_SERVICE_TARGET); "
+        "Get-CimInstance Win32_Process -Filter \"Name = 'llavon-ime-service.exe'\" | "
         "Where-Object { "
         "    $_.ExecutablePath -and "
         "    ([System.IO.Path]::GetFullPath($_.ExecutablePath) -ieq $target) "
@@ -50,7 +50,7 @@ def stop_running_exe(exe: Path) -> None:
             script,
         ],
         cwd=root,
-        env={**os.environ, "IME_SERVICE_TARGET": str(exe.resolve())},
+        env={**os.environ, "LLAVON_IME_SERVICE_TARGET": str(exe.resolve())},
         check=True,
     )
 
@@ -62,10 +62,10 @@ if set(current) != set(previous) or not build_dir.is_dir():
 
 if tsf_dll.exists():
     t = datetime.now().strftime("%Y%m%d_%H%M%S")
-    bak = temp / f"MyIME_{t}.dll"
+    bak = temp / f"llavon-ime_{t}.dll"
     i = 1
     while bak.exists():
-        bak = temp / f"MyIME_{t}_{i}.dll"
+        bak = temp / f"llavon-ime_{t}_{i}.dll"
         i += 1
     print(f"Moving previous TSF DLL out of the build output: {tsf_dll} -> {bak}")
     tsf_dll.replace(bak)

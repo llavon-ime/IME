@@ -1,6 +1,7 @@
 #include "service/llama_backend.hpp"
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <cstdlib>
 #include <filesystem>
@@ -38,12 +39,10 @@ std::filesystem::path project_root_from_source() {
 std::filesystem::path tables_dir() {
     if (const char* override = std::getenv("IME_FCITX5_TABLE_DIR"); override != nullptr && override[0] != '\0')
         return override;
-    if (const char* override = std::getenv("IME_LINUX_TABLE_DIR"); override != nullptr && override[0] != '\0')
-        return override;
 
 #ifdef __APPLE__
     if (const char* home = std::getenv("HOME"); home != nullptr && home[0] != '\0') {
-        const auto user_path = std::filesystem::path(home) / "Library" / "fcitx5" / "share" / "ime" / "tables";
+        const auto user_path = std::filesystem::path(home) / "Library" / "fcitx5" / "share" / "llavon-ime" / "tables";
         if (std::filesystem::exists(user_path / "tokens")) return user_path;
     }
 #endif
@@ -197,9 +196,12 @@ struct LlamaBackend::Impl {
 #if IME_FCITX5_HAS_LLAMA
     llama_model* model = nullptr;
     llama_context* context = nullptr;
+    llama_memory_t memory = nullptr;
     const llama_vocab* vocab = nullptr;
     std::unique_ptr<TokenTables> tokens;
     std::unique_ptr<TableEngine> table;
+    std::vector<int> prev_tokens;
+    llama_pos next_pos = 0;
 
     ~Impl() {
         reset();
@@ -210,10 +212,58 @@ struct LlamaBackend::Impl {
         if (model != nullptr) llama_model_free(model);
         context = nullptr;
         model = nullptr;
+        memory = nullptr;
         vocab = nullptr;
         tokens.reset();
         table.reset();
+        prev_tokens.clear();
+        next_pos = 0;
         ready = false;
+    }
+
+    void clear_cache() {
+        if (memory != nullptr) llama_memory_clear(memory, true);
+        prev_tokens.clear();
+        next_pos = 0;
+    }
+
+    void decode_and_cache(const std::vector<int>& tokens_to_decode) {
+        if (tokens_to_decode.empty()) return;
+        decode_tokens(context, tokens_to_decode, next_pos, true);
+        next_pos += static_cast<llama_pos>(tokens_to_decode.size());
+        prev_tokens.insert(prev_tokens.end(), tokens_to_decode.begin(), tokens_to_decode.end());
+    }
+
+    void decode_and_cache(int token) {
+        decode_tokens(context, {token}, next_pos, true);
+        ++next_pos;
+        prev_tokens.push_back(token);
+    }
+
+    void ensure_cache_aligned(const std::vector<int>& new_tokens) {
+        size_t common = 0;
+        while (common < prev_tokens.size() && common < new_tokens.size() &&
+               prev_tokens[common] == new_tokens[common]) {
+            ++common;
+        }
+
+        if (common < prev_tokens.size()) {
+            if (common == 0) {
+                clear_cache();
+            } else if (llama_memory_seq_rm(memory, 0, static_cast<llama_pos>(common), -1)) {
+                prev_tokens.resize(common);
+            } else {
+                clear_cache();
+                common = 0;
+            }
+        }
+        next_pos = static_cast<llama_pos>(common);
+
+        if (common < new_tokens.size()) {
+            std::vector<int> tail(new_tokens.begin() + static_cast<std::ptrdiff_t>(common),
+                                  new_tokens.end());
+            decode_and_cache(tail);
+        }
     }
 #else
     void reset() {
@@ -257,6 +307,8 @@ void LlamaBackend::load(const Config& cfg) {
         impl_->context = llama_init_from_model(impl_->model, context_params);
         if (impl_->context == nullptr)
             throw std::runtime_error("failed to create llama.cpp context: " + cfg.model_path);
+        impl_->memory = llama_get_memory(impl_->context);
+        impl_->clear_cache();
 
         const auto table_dir = tables_dir();
         impl_->tokens = std::make_unique<TokenTables>(table_dir / "tokens");
@@ -277,18 +329,16 @@ PredictResponse LlamaBackend::predict(const PredictRequest& request) {
     if (!ready()) throw std::runtime_error("llama.cpp backend is not ready");
 #if IME_FCITX5_HAS_LLAMA
     const auto prompt_tokens = impl_->tokens->tokenize(request);
-    llama_memory_clear(llama_get_memory(impl_->context), true);
-    decode_tokens(impl_->context, prompt_tokens, 0, true);
+    impl_->ensure_cache_aligned(prompt_tokens);
 
     PredictResponse response;
     response.candidates.reserve(request.padding.size());
-    llama_pos next_pos = static_cast<llama_pos>(prompt_tokens.size());
 
     for (const auto& entry : request.padding) {
         if (entry.chosen) {
             response.candidates.push_back({entry.chosen_char});
             if (const int token = impl_->tokens->map_char(entry.chosen_char); token != -1) {
-                decode_tokens(impl_->context, {token}, next_pos++, true);
+                impl_->decode_and_cache(token);
             }
             continue;
         }
@@ -311,7 +361,7 @@ PredictResponse LlamaBackend::predict(const PredictRequest& request) {
         std::vector<char32_t> candidates;
         candidates.reserve(scored.size());
         for (const auto& item : scored) candidates.push_back(item.candidate);
-        if (!scored.empty()) decode_tokens(impl_->context, {scored.front().token}, next_pos++, true);
+        if (!scored.empty()) impl_->decode_and_cache(scored.front().token);
         response.candidates.push_back(std::move(candidates));
     }
 

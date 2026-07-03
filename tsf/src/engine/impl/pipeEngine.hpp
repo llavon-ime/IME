@@ -23,7 +23,7 @@ class PipeEngine : public IEngine {
 
     static bool ensure_pipe() {
         if (hPipe != INVALID_HANDLE_VALUE) return true;
-        hPipe = CreateFileW(L"\\\\.\\pipe\\IME_Service", GENERIC_READ | GENERIC_WRITE,
+        hPipe = CreateFileW(L"\\\\.\\pipe\\llavon-ime", GENERIC_READ | GENERIC_WRITE,
                             0, nullptr, OPEN_EXISTING, 0, nullptr);
         return hPipe != INVALID_HANDLE_VALUE;
     }

@@ -41,7 +41,7 @@ struct LlamaOffloadDevice {
 
 class ModelManager {
     static std::filesystem::path resolve_model_path(std::source_location loc = std::source_location::current()) {
-        return project_root(loc) / "models" / "bopomofo-ime-llama-250m-Q4_K_M.gguf";
+        return project_root(loc) / "models" / "llavon-ime-llama-250m-Q4_K_M.gguf";
     }
 
     static const char* device_type_name(enum ggml_backend_dev_type type) {

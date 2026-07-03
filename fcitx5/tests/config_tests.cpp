@@ -61,17 +61,15 @@ int run_config_tests() {
     ScopedEnv xdg_runtime("XDG_RUNTIME_DIR");
     ScopedEnv home("HOME");
     ScopedEnv config_override("IME_FCITX5_CONFIG_PATH");
-    ScopedEnv legacy_config_override("IME_LINUX_CONFIG_PATH");
     setenv("XDG_CONFIG_HOME", "", 1);
     setenv("XDG_RUNTIME_DIR", "", 1);
     setenv("HOME", "/tmp/ime-home", 1);
     unsetenv("IME_FCITX5_CONFIG_PATH");
-    unsetenv("IME_LINUX_CONFIG_PATH");
-    ok = ok && ime::fcitx5::config_path() == "/tmp/ime-home/.config/fcitx5/conf/ime-fcitx5.conf";
-    ok = ok && ime::fcitx5::legacy_config_path() == "/tmp/ime-home/.config/ime-fcitx5/config.json";
-    ok = ok && ime::fcitx5::runtime_dir() == std::filesystem::temp_directory_path() / "ime-fcitx5";
+    ok = ok && ime::fcitx5::config_path() == "/tmp/ime-home/.config/fcitx5/conf/llavon-ime.conf";
+    ok = ok && ime::fcitx5::legacy_config_path() == "/tmp/ime-home/.config/llavon-ime/config.json";
+    ok = ok && ime::fcitx5::runtime_dir() == std::filesystem::temp_directory_path() / "llavon-ime";
 
-    const auto config_root = std::filesystem::temp_directory_path() / "ime-fcitx5-config-test";
+    const auto config_root = std::filesystem::temp_directory_path() / "llavon-ime-config-test";
     std::filesystem::remove_all(config_root);
     setenv("XDG_CONFIG_HOME", config_root.c_str(), 1);
     std::filesystem::create_directories(ime::fcitx5::config_path().parent_path());
@@ -112,17 +110,17 @@ int run_config_tests() {
 
     {
         std::ofstream output(ime::fcitx5::config_path());
-        output << "ModelPath=\"/Library/Application Support/IME-Fcitx5/models/model.gguf\"\n";
+        output << "ModelPath=\"/Library/Application Support/llavon-ime/models/model.gguf\"\n";
     }
     const auto quoted_space_loaded = ime::fcitx5::load_config();
-    ok = ok && quoted_space_loaded.model_path == "/Library/Application Support/IME-Fcitx5/models/model.gguf";
+    ok = ok && quoted_space_loaded.model_path == "/Library/Application Support/llavon-ime/models/model.gguf";
 
     {
         std::ofstream output(ime::fcitx5::config_path());
-        output << "ModelPath=/Library/Application\\ Support/IME-Fcitx5/models/model.gguf\n";
+        output << "ModelPath=/Library/Application\\ Support/llavon-ime/models/model.gguf\n";
     }
     const auto escaped_space_loaded = ime::fcitx5::load_config();
-    ok = ok && escaped_space_loaded.model_path == "/Library/Application Support/IME-Fcitx5/models/model.gguf";
+    ok = ok && escaped_space_loaded.model_path == "/Library/Application Support/llavon-ime/models/model.gguf";
 
     {
         std::ofstream output(ime::fcitx5::config_path());
@@ -160,18 +158,6 @@ int run_config_tests() {
     const auto legacy_loaded = ime::fcitx5::load_config();
     ok = ok && legacy_loaded.model_path == "/tmp/legacy.gguf";
     ok = ok && legacy_loaded.gpu_layers == 7;
-
-    std::filesystem::remove(ime::fcitx5::legacy_config_path());
-    const auto legacy_fcitx_path = config_root / "fcitx5" / "conf" / "ime-linux.conf";
-    std::filesystem::create_directories(legacy_fcitx_path.parent_path());
-    {
-        std::ofstream output(legacy_fcitx_path);
-        output << "ModelPath=/tmp/old-fcitx.gguf\n"
-               << "GpuLayers=9\n";
-    }
-    const auto old_fcitx_loaded = ime::fcitx5::load_config();
-    ok = ok && old_fcitx_loaded.model_path == "/tmp/old-fcitx.gguf";
-    ok = ok && old_fcitx_loaded.gpu_layers == 9;
 
     bool malformed_uses_default = false;
     {

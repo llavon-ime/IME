@@ -115,7 +115,7 @@ int run_protocol_tests() {
     }
     ok = ok && rejected_invalid_scalar;
 
-    const auto socket_path = std::filesystem::temp_directory_path() / "ime-fcitx5-protocol-test.sock";
+    const auto socket_path = std::filesystem::temp_directory_path() / "llavon-ime-protocol-test.sock";
     ime::fcitx5::UnixSocketServer server;
     server.bind_listen(socket_path);
     std::thread server_thread([&server]() {
@@ -129,7 +129,7 @@ int run_protocol_tests() {
     ok = ok && client.recv_exact(3) == payload;
     server_thread.join();
 
-    const auto active_socket_path = std::filesystem::temp_directory_path() / "ime-fcitx5-active-test.sock";
+    const auto active_socket_path = std::filesystem::temp_directory_path() / "llavon-ime-active-test.sock";
     ime::fcitx5::UnixSocketServer active_server;
     active_server.bind_listen(active_socket_path);
     bool rejected_active_socket = false;
@@ -141,14 +141,14 @@ int run_protocol_tests() {
     }
     ok = ok && rejected_active_socket;
 
-    const auto parentless_socket = std::filesystem::path("ime-fcitx5-parentless-test.sock");
+    const auto parentless_socket = std::filesystem::path("llavon-ime-parentless-test.sock");
     {
         ime::fcitx5::UnixSocketServer parentless_server;
         parentless_server.bind_listen(parentless_socket);
     }
     ok = ok && !std::filesystem::exists(parentless_socket);
 
-    const auto non_socket_path = std::filesystem::temp_directory_path() / "ime-fcitx5-non-socket-test";
+    const auto non_socket_path = std::filesystem::temp_directory_path() / "llavon-ime-non-socket-test";
     {
         std::ofstream file(non_socket_path);
         file << "not a socket";

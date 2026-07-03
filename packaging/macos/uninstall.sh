@@ -24,24 +24,24 @@ fi
 
 target_root="${user_home}/Library/fcitx5"
 
-pkill -x ime-fcitx5-service >/dev/null 2>&1 || true
+pkill -x llavon-ime-service >/dev/null 2>&1 || true
 pkill -x Fcitx5 >/dev/null 2>&1 || true
 
 rm -f \
-    "${target_root}/bin/ime-fcitx5-service" \
-    "${target_root}/lib/fcitx5/ime-fcitx5-addon.so" \
-    "${target_root}/share/fcitx5/addon/ime-fcitx5.conf" \
-    "${target_root}/share/fcitx5/inputmethod/ime-fcitx5.conf" \
-    "${target_root}/plugin/ime-fcitx5.json"
+    "${target_root}/bin/llavon-ime-service" \
+    "${target_root}/lib/fcitx5/llavon-ime-addon.so" \
+    "${target_root}/share/fcitx5/addon/llavon-ime.conf" \
+    "${target_root}/share/fcitx5/inputmethod/llavon-ime.conf" \
+    "${target_root}/plugin/llavon-ime.json"
 
 rm -rf \
-    "${target_root}/share/ime/tables/bopomofo_char.json" \
-    "${target_root}/share/ime/tables/tokens"
+    "${target_root}/share/llavon-ime/tables/bopomofo_char.json" \
+    "${target_root}/share/llavon-ime/tables/tokens"
 
 find "${target_root}" -name '._*' -delete 2>/dev/null || true
 
-rm -rf "/Library/Application Support/IME-Fcitx5"
-pkgutil --forget org.lafonime.ime-fcitx5 >/dev/null 2>&1 || true
+rm -rf "/Library/Application Support/llavon-ime"
+pkgutil --forget llavon-ime >/dev/null 2>&1 || true
 
 if [ "${fcitx_was_running}" = true ] && [ -d "/Library/Input Methods/Fcitx5.app" ]; then
     /bin/launchctl asuser "${uid}" /usr/bin/open -gj -b org.fcitx.inputmethod.Fcitx5 >/dev/null 2>&1 || true

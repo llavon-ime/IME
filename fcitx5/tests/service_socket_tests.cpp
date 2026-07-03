@@ -59,7 +59,7 @@ int run_service_socket_tests() {
                                std::to_string(std::chrono::steady_clock::now().time_since_epoch().count());
     const auto runtime_root = std::filesystem::path("/tmp") / ("ime-fx-r-" + unique_suffix);
     const auto config_root = std::filesystem::path("/tmp") / ("ime-fx-c-" + unique_suffix);
-    const auto socket_path = runtime_root / "ime-fcitx5" / "ime.sock";
+    const auto socket_path = runtime_root / "llavon-ime" / "ime.sock";
     std::filesystem::remove_all(runtime_root);
     std::filesystem::remove_all(config_root);
     std::filesystem::create_directories(runtime_root);

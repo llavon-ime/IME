@@ -512,8 +512,6 @@ int run(int argc, char** argv) {
     auto config = ime::fcitx5::load_config();
     if (const char* model_path = std::getenv("IME_FCITX5_MODEL_PATH")) {
         config.model_path = model_path;
-    } else if (const char* legacy_model_path = std::getenv("IME_LINUX_MODEL_PATH")) {
-        config.model_path = legacy_model_path;
     }
 
     if (argc >= 2 && std::string(argv[1]) == "--status") {

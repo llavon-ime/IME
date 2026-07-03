@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-PAYLOAD_ROOT="/Library/Application Support/IME-Fcitx5/payload"
+PAYLOAD_ROOT="/Library/Application Support/llavon-ime/payload"
 
 console_user="$(stat -f %Su /dev/console 2>/dev/null || true)"
 if [ -z "${console_user}" ] || [ "${console_user}" = "root" ] || [ "${console_user}" = "loginwindow" ]; then
@@ -9,7 +9,7 @@ if [ -z "${console_user}" ] || [ "${console_user}" = "root" ] || [ "${console_us
 fi
 
 if [ -z "${console_user}" ] || ! id "${console_user}" >/dev/null 2>&1; then
-    echo "ime-fcitx5: no active user found; payload remains at ${PAYLOAD_ROOT}" >&2
+    echo "llavon-ime: no active user found; payload remains at ${PAYLOAD_ROOT}" >&2
     exit 0
 fi
 
@@ -25,31 +25,25 @@ if /usr/bin/pgrep -x -u "${uid}" Fcitx5 >/dev/null 2>&1; then
 fi
 
 if [ ! -d "${PAYLOAD_ROOT}" ]; then
-    echo "ime-fcitx5: missing package payload: ${PAYLOAD_ROOT}" >&2
+    echo "llavon-ime: missing package payload: ${PAYLOAD_ROOT}" >&2
     exit 1
 fi
 
 target_root="${user_home}/Library/fcitx5"
 
-pkill -x ime-fcitx5-service >/dev/null 2>&1 || true
+pkill -x llavon-ime-service >/dev/null 2>&1 || true
 pkill -x Fcitx5 >/dev/null 2>&1 || true
 
 /bin/mkdir -p "${target_root}"
 /usr/bin/ditto --norsrc --noextattr "${PAYLOAD_ROOT}" "${target_root}"
 
-/usr/bin/find "${target_root}" "/Library/Application Support/IME-Fcitx5" -name '._*' -delete
-
-/bin/rm -f \
-    "${target_root}/bin/ime-linux-service" \
-    "${target_root}/plugin/ime-linux.json" \
-    "${target_root}/share/fcitx5/addon/ime-linux.conf" \
-    "${target_root}/share/fcitx5/inputmethod/ime-linux.conf"
+/usr/bin/find "${target_root}" "/Library/Application Support/llavon-ime" -name '._*' -delete
 
 /usr/sbin/chown -R "${console_user}:staff" "${target_root}"
-/bin/chmod -R a+rX "/Library/Application Support/IME-Fcitx5/models" 2>/dev/null || true
+/bin/chmod -R a+rX "/Library/Application Support/llavon-ime/models" 2>/dev/null || true
 
 if [ ! -d "/Library/Input Methods/Fcitx5.app" ]; then
-    echo "ime-fcitx5: Fcitx5.app is not installed; install fcitx5-macos before using this input method." >&2
+    echo "llavon-ime: Fcitx5.app is not installed; install fcitx5-macos before using this input method." >&2
 elif [ "${fcitx_was_running}" = true ]; then
     /bin/launchctl asuser "${uid}" /usr/bin/open -gj -b org.fcitx.inputmethod.Fcitx5 >/dev/null 2>&1 || true
 fi

@@ -20,7 +20,7 @@ int run_service_app_tests() {
 
     bool status_does_not_require_table = false;
     try {
-        ime::fcitx5::ServiceApp status_only(cfg, "/tmp/ime-fcitx5-missing-table.json");
+        ime::fcitx5::ServiceApp status_only(cfg, "/tmp/llavon-ime-missing-table.json");
         status_does_not_require_table = status_only.handle_status().running;
     } catch (...) {
         status_does_not_require_table = false;
