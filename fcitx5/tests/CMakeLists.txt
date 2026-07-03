@@ -1,5 +1,7 @@
-add_executable(ime_fcitx5_tests test_main.cpp config_tests.cpp bopomofo_tests.cpp buffer_tests.cpp protocol_tests.cpp service_app_tests.cpp llama_backend_tests.cpp service_client_tests.cpp keypad_tests.cpp)
+add_executable(ime_fcitx5_tests test_main.cpp config_tests.cpp bopomofo_tests.cpp buffer_tests.cpp protocol_tests.cpp service_app_tests.cpp llama_backend_tests.cpp service_client_tests.cpp service_socket_tests.cpp keypad_tests.cpp)
 target_link_libraries(ime_fcitx5_tests PRIVATE ime_fcitx5_shared ime_fcitx5_service_lib)
+target_compile_definitions(ime_fcitx5_tests PRIVATE IME_FCITX5_SERVICE_TEST_PATH="$<TARGET_FILE:ime-fcitx5-service>")
+add_dependencies(ime_fcitx5_tests ime-fcitx5-service)
 add_test(NAME ime_fcitx5_tests COMMAND ime_fcitx5_tests)
 set_tests_properties(ime_fcitx5_tests PROPERTIES WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/..")
 

@@ -43,6 +43,8 @@ target_compile_definitions(ime_fcitx5_shared PRIVATE
 target_compile_options(ime_fcitx5_shared PRIVATE -Wall -Wextra -Wpedantic)
 
 find_package(nlohmann_json CONFIG REQUIRED)
+find_package(asio CONFIG REQUIRED)
+find_package(Threads REQUIRED)
 target_sources(ime_fcitx5_shared PRIVATE shared/config/config.cpp)
 target_sources(ime_fcitx5_shared PRIVATE
     shared/text/utf.cpp
@@ -54,10 +56,10 @@ target_sources(ime_fcitx5_shared PRIVATE
     shared/input/keypad.cpp
     shared/engine/service_client.cpp
     shared/protocol/protocol.cpp
-    shared/protocol/json_codec.cpp
+    shared/protocol/binary_codec.cpp
     shared/ipc/unix_socket.cpp
 )
-target_link_libraries(ime_fcitx5_shared PUBLIC nlohmann_json::nlohmann_json)
+target_link_libraries(ime_fcitx5_shared PUBLIC nlohmann_json::nlohmann_json Threads::Threads)
 
 add_library(ime_fcitx5_service_lib STATIC service/service_app.cpp service/llama_backend.cpp)
 set_target_properties(ime_fcitx5_service_lib PROPERTIES POSITION_INDEPENDENT_CODE ON)
@@ -72,7 +74,7 @@ target_compile_options(ime_fcitx5_service_lib PRIVATE -Wall -Wextra -Wpedantic)
 ime_fcitx5_configure_llama(ime_fcitx5_service_lib)
 
 add_executable(ime-fcitx5-service service/service_main.cpp)
-target_link_libraries(ime-fcitx5-service PRIVATE ime_fcitx5_service_lib)
+target_link_libraries(ime-fcitx5-service PRIVATE ime_fcitx5_service_lib asio::asio)
 set_target_properties(ime-fcitx5-service PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/service")
 install(TARGETS ime-fcitx5-service RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
 install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/../tables/bopomofo_char.json"

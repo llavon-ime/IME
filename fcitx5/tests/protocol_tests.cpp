@@ -1,4 +1,4 @@
-#include "protocol/json_codec.hpp"
+#include "protocol/binary_codec.hpp"
 #include "protocol/protocol.hpp"
 #include "ipc/unix_socket.hpp"
 #include "text/utf.hpp"
@@ -12,15 +12,6 @@
 
 int run_protocol_tests() {
     bool ok = true;
-
-    const auto frame = [](const std::string& text) {
-        ime::fcitx5::ByteVector bytes{static_cast<std::uint8_t>(text.size() & 0xFFU),
-                                    static_cast<std::uint8_t>((text.size() >> 8U) & 0xFFU),
-                                    static_cast<std::uint8_t>((text.size() >> 16U) & 0xFFU),
-                                    static_cast<std::uint8_t>((text.size() >> 24U) & 0xFFU)};
-        bytes.insert(bytes.end(), text.begin(), text.end());
-        return bytes;
-    };
 
     ime::fcitx5::PredictRequest req;
     req.context = u"你好";
@@ -62,25 +53,17 @@ int run_protocol_tests() {
     }
     ok = ok && rejected_extra_payload;
 
+    req.padding[0].chosen = true;
     req.padding[0].chosen_char = U'你';
     const auto chosen_bytes = ime::fcitx5::encode_message(req);
+    ok = ok && ime::fcitx5::decode_predict_request(chosen_bytes).padding[0].chosen;
     ok = ok && ime::fcitx5::decode_predict_request(chosen_bytes).padding[0].chosen_char == U'你';
-
-    const std::string invalid_text =
-        R"({"context":"","padding":[{"bopomofo":"ㄋㄧˇ","chosen":true,"chosen_char":"你好"}],"type":"predict_request"})";
-    const auto invalid_char = frame(invalid_text);
-    bool rejected_multi_codepoint = false;
-    try {
-        (void)ime::fcitx5::decode_predict_request(invalid_char);
-    } catch (...) {
-        rejected_multi_codepoint = true;
-    }
-    ok = ok && rejected_multi_codepoint;
 
     bool rejected_empty_chosen_char = false;
     try {
-        (void)ime::fcitx5::decode_predict_request(frame(
-            R"({"context":"","padding":[{"bopomofo":"ㄋㄧˇ","chosen":true,"chosen_char":""}],"type":"predict_request"})"));
+        ime::fcitx5::PredictRequest invalid_request;
+        invalid_request.padding.push_back({true, {}, 0});
+        (void)ime::fcitx5::encode_message(invalid_request);
     } catch (...) {
         rejected_empty_chosen_char = true;
     }
@@ -98,8 +81,9 @@ int run_protocol_tests() {
 
     bool rejected_decoded_zero_candidate = false;
     try {
-        (void)ime::fcitx5::decode_predict_response(
-            frame(R"({"candidates":[["\u0000"]],"type":"predict_response"})"));
+        auto invalid_response_bytes = response_bytes;
+        for (size_t i = 0; i < sizeof(char32_t); ++i) invalid_response_bytes[invalid_response_bytes.size() - 1 - i] = 0;
+        (void)ime::fcitx5::decode_predict_response(invalid_response_bytes);
     } catch (...) {
         rejected_decoded_zero_candidate = true;
     }
@@ -115,7 +99,9 @@ int run_protocol_tests() {
 
     bool rejected_missing_field = false;
     try {
-        (void)ime::fcitx5::decode_predict_request(frame(R"({"context":"","type":"predict_request"})"));
+        auto truncated = bytes;
+        truncated.pop_back();
+        (void)ime::fcitx5::decode_predict_request(truncated);
     } catch (...) {
         rejected_missing_field = true;
     }

@@ -3,6 +3,7 @@
 #include "protocol/protocol.hpp"
 
 #include <cstdint>
+#include <string>
 #include <vector>
 
 namespace ime::fcitx5 {

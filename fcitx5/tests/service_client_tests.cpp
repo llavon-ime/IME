@@ -1,10 +1,11 @@
 #include "engine/service_client.hpp"
 #include "ipc/unix_socket.hpp"
-#include "protocol/json_codec.hpp"
+#include "protocol/binary_codec.hpp"
 
 #include <chrono>
 #include <cstdint>
 #include <cstdlib>
+#include <cstring>
 #include <filesystem>
 #include <mutex>
 #include <string>
@@ -45,10 +46,8 @@ private:
 
 std::vector<std::uint8_t> recv_message(const ime::fcitx5::UnixSocketConnection& connection) {
     auto header = connection.recv_exact(4);
-    const auto length = static_cast<std::uint32_t>(header[0]) |
-                        (static_cast<std::uint32_t>(header[1]) << 8U) |
-                        (static_cast<std::uint32_t>(header[2]) << 16U) |
-                        (static_cast<std::uint32_t>(header[3]) << 24U);
+    std::uint32_t length = 0;
+    std::memcpy(&length, header.data(), sizeof(length));
     auto payload = connection.recv_exact(length);
     header.insert(header.end(), payload.begin(), payload.end());
     return header;
