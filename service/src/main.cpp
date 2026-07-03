@@ -62,7 +62,7 @@ static InputMode toggle_input_mode() {
 
 static EngineBackend selected_engine_backend() {
     char env[32]{};
-    const DWORD len = GetEnvironmentVariableA("IME_ENGINE", env, static_cast<DWORD>(sizeof(env)));
+    const DWORD len = GetEnvironmentVariableA("LLAVON_IME_ENGINE", env, static_cast<DWORD>(sizeof(env)));
     if (len > 0 && len < sizeof(env) && std::string_view(env, len) == "onnx") {
         return EngineBackend::Onnx;
     }
@@ -81,7 +81,7 @@ static const char* backend_name(EngineBackend backend) {
 
 static ServicePriority selected_service_priority() {
     char env[32]{};
-    const DWORD len = GetEnvironmentVariableA("IME_SERVICE_PRIORITY", env, static_cast<DWORD>(sizeof(env)));
+    const DWORD len = GetEnvironmentVariableA("LLAVON_IME_SERVICE_PRIORITY", env, static_cast<DWORD>(sizeof(env)));
     if (len == 0 || len >= sizeof(env)) {
         return ServicePriority::High;
     }

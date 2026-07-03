@@ -5,8 +5,8 @@ if(NOT addon_conf MATCHES "(^|\n)OnDemand=True(\n|$)")
     message(FATAL_ERROR "fcitx5 addon must use OnDemand=True when inputmethod metadata provides the IM")
 endif()
 
-if(NOT inputmethod_conf MATCHES "(^|\n)Addon=ime-fcitx5(\n|$)")
-    message(FATAL_ERROR "fcitx5 inputmethod metadata must reference addon ime-fcitx5")
+if(NOT inputmethod_conf MATCHES "(^|\n)Addon=llavon-ime(\n|$)")
+    message(FATAL_ERROR "fcitx5 inputmethod metadata must reference addon llavon-ime")
 endif()
 
 if(NOT inputmethod_conf MATCHES "(^|\n)Name=拉風輸入法(\n|$)")

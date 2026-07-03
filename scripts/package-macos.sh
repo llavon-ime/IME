@@ -5,15 +5,15 @@ export COPYFILE_DISABLE=1
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VERSION="${IME_FCITX5_VERSION:-0.1.0}"
 ARCH="$(uname -m)"
-PAYLOAD_PREFIX="${IME_FCITX5_MACOS_PAYLOAD_PREFIX:-/Library/Application Support/IME-Fcitx5/payload}"
-BUILD_DIR="${IME_FCITX5_BUILD_DIR:-${ROOT_DIR}/build/package-macos-${ARCH}}"
+PAYLOAD_PREFIX="${IME_FCITX5_MACOS_PAYLOAD_PREFIX:-/Library/Application Support/llavon-ime/payload}"
+BUILD_DIR="${IME_FCITX5_BUILD_DIR:-${ROOT_DIR}/build/package-llavon-ime-macos-${ARCH}}"
 DIST_DIR="${IME_FCITX5_DIST_DIR:-${ROOT_DIR}/dist/macos}"
 PKGROOT="${DIST_DIR}/pkgroot"
-PKG_IDENTIFIER="${IME_FCITX5_PKG_IDENTIFIER:-org.lafonime.ime-fcitx5}"
+PKG_IDENTIFIER="${IME_FCITX5_PKG_IDENTIFIER:-llavon-ime}"
 VCPKG_FEATURES="${IME_FCITX5_VCPKG_FEATURES:-llama-metal}"
 FCITX5_MACOS_SOURCE_DIR="${FCITX5_MACOS_SOURCE_DIR:-${1:-}}"
 MODEL_PATH="${IME_FCITX5_PACKAGE_MODEL_PATH:-}"
-MODEL_INSTALL_DIR="/Library/Application Support/IME-Fcitx5/models"
+MODEL_INSTALL_DIR="/Library/Application Support/llavon-ime/models"
 MODEL_INSTALL_PATH=""
 
 if [[ -z "${FCITX5_MACOS_SOURCE_DIR}" && -d "${ROOT_DIR}/../fcitx5-macos" ]]; then
@@ -112,16 +112,16 @@ fi
 find "${PKGROOT}" -name '._*' -delete
 
 required_files=(
-    "${payload_root}/bin/ime-fcitx5-service"
-    "${payload_root}/lib/fcitx5/ime-fcitx5-addon.so"
-    "${payload_root}/share/fcitx5/addon/ime-fcitx5.conf"
-    "${payload_root}/share/fcitx5/inputmethod/ime-fcitx5.conf"
-    "${payload_root}/share/ime/tables/bopomofo_char.json"
-    "${payload_root}/share/ime/tables/tokens/bpmf.json"
-    "${payload_root}/share/ime/tables/tokens/chars.json"
-    "${payload_root}/share/ime/tables/tokens/latin.json"
-    "${payload_root}/share/ime/tables/tokens/special_tokens.json"
-    "${payload_root}/plugin/ime-fcitx5.json"
+    "${payload_root}/bin/llavon-ime-service"
+    "${payload_root}/lib/fcitx5/llavon-ime-addon.so"
+    "${payload_root}/share/fcitx5/addon/llavon-ime.conf"
+    "${payload_root}/share/fcitx5/inputmethod/llavon-ime.conf"
+    "${payload_root}/share/llavon-ime/tables/bopomofo_char.json"
+    "${payload_root}/share/llavon-ime/tables/tokens/bpmf.json"
+    "${payload_root}/share/llavon-ime/tables/tokens/chars.json"
+    "${payload_root}/share/llavon-ime/tables/tokens/latin.json"
+    "${payload_root}/share/llavon-ime/tables/tokens/special_tokens.json"
+    "${payload_root}/plugin/llavon-ime.json"
     "${PKGROOT}${MODEL_INSTALL_PATH}"
 )
 
@@ -139,11 +139,11 @@ fi
 
 if [[ -n "${DEVELOPER_ID_APPLICATION:-}" ]]; then
     codesign --force --timestamp --options runtime --sign "${DEVELOPER_ID_APPLICATION}" \
-        "${payload_root}/bin/ime-fcitx5-service" \
-        "${payload_root}/lib/fcitx5/ime-fcitx5-addon.so"
+        "${payload_root}/bin/llavon-ime-service" \
+        "${payload_root}/lib/fcitx5/llavon-ime-addon.so"
 fi
 
-unsigned_pkg="${DIST_DIR}/ime-fcitx5-${VERSION}-${ARCH}.pkg"
+unsigned_pkg="${DIST_DIR}/llavon-ime-${VERSION}-${ARCH}.pkg"
 pkgbuild \
     --root "${PKGROOT}" \
     --scripts "${ROOT_DIR}/packaging/macos/scripts" \
@@ -153,7 +153,7 @@ pkgbuild \
     "${unsigned_pkg}"
 
 if [[ -n "${DEVELOPER_ID_INSTALLER:-}" ]]; then
-    signed_pkg="${DIST_DIR}/ime-fcitx5-${VERSION}-${ARCH}-signed.pkg"
+    signed_pkg="${DIST_DIR}/llavon-ime-${VERSION}-${ARCH}-signed.pkg"
     productsign --sign "${DEVELOPER_ID_INSTALLER}" "${unsigned_pkg}" "${signed_pkg}"
     echo "Built signed package: ${signed_pkg}"
 else

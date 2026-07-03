@@ -4,10 +4,10 @@
     Registers the TSF IME with the system (calls regsvr32) and adds it to the
     zh-Hant-TW input method list so it appears in the language switcher.
 .PARAMETER DllPath
-    Full path to MyIME.dll. Defaults to ..\build\x64-debug\src\Debug\MyIME.dll.
+    Full path to llavon-ime.dll. Defaults to ..\..\build\x64-debug\tsf\Debug\llavon-ime.dll.
 #>
 param(
-    [string]$DllPath = (Join-Path $PSScriptRoot "..\build\x64-debug\src\Debug\MyIME.dll")
+    [string]$DllPath = (Join-Path $PSScriptRoot "..\..\build\x64-debug\tsf\Debug\llavon-ime.dll")
 )
 
 $resolved = Resolve-Path $DllPath -ErrorAction SilentlyContinue

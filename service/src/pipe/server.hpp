@@ -2,6 +2,6 @@
 
 namespace imesvc {
 
-inline constexpr const wchar_t* pipe_name = L"\\\\.\\pipe\\IME_Service";
+inline constexpr const wchar_t* pipe_name = L"\\\\.\\pipe\\llavon-ime";
 
 }  // namespace imesvc

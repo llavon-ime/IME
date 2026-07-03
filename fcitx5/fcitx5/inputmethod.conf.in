@@ -3,5 +3,5 @@ Name=拉風輸入法
 Icon=input-keyboard
 Label=拉風
 LangCode=zh
-Addon=ime-fcitx5
+Addon=llavon-ime
 Configurable=True

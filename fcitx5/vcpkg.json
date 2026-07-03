@@ -1,5 +1,6 @@
 {
   "dependencies": [
+    "asio",
     "llama-cpp",
     "nlohmann-json"
   ],

@@ -1,4 +1,4 @@
-#include "protocol/json_codec.hpp"
+#include "protocol/binary_codec.hpp"
 #include "protocol/protocol.hpp"
 #include "ipc/unix_socket.hpp"
 #include "text/utf.hpp"
@@ -12,15 +12,6 @@
 
 int run_protocol_tests() {
     bool ok = true;
-
-    const auto frame = [](const std::string& text) {
-        ime::fcitx5::ByteVector bytes{static_cast<std::uint8_t>(text.size() & 0xFFU),
-                                    static_cast<std::uint8_t>((text.size() >> 8U) & 0xFFU),
-                                    static_cast<std::uint8_t>((text.size() >> 16U) & 0xFFU),
-                                    static_cast<std::uint8_t>((text.size() >> 24U) & 0xFFU)};
-        bytes.insert(bytes.end(), text.begin(), text.end());
-        return bytes;
-    };
 
     ime::fcitx5::PredictRequest req;
     req.context = u"你好";
@@ -62,25 +53,17 @@ int run_protocol_tests() {
     }
     ok = ok && rejected_extra_payload;
 
+    req.padding[0].chosen = true;
     req.padding[0].chosen_char = U'你';
     const auto chosen_bytes = ime::fcitx5::encode_message(req);
+    ok = ok && ime::fcitx5::decode_predict_request(chosen_bytes).padding[0].chosen;
     ok = ok && ime::fcitx5::decode_predict_request(chosen_bytes).padding[0].chosen_char == U'你';
-
-    const std::string invalid_text =
-        R"({"context":"","padding":[{"bopomofo":"ㄋㄧˇ","chosen":true,"chosen_char":"你好"}],"type":"predict_request"})";
-    const auto invalid_char = frame(invalid_text);
-    bool rejected_multi_codepoint = false;
-    try {
-        (void)ime::fcitx5::decode_predict_request(invalid_char);
-    } catch (...) {
-        rejected_multi_codepoint = true;
-    }
-    ok = ok && rejected_multi_codepoint;
 
     bool rejected_empty_chosen_char = false;
     try {
-        (void)ime::fcitx5::decode_predict_request(frame(
-            R"({"context":"","padding":[{"bopomofo":"ㄋㄧˇ","chosen":true,"chosen_char":""}],"type":"predict_request"})"));
+        ime::fcitx5::PredictRequest invalid_request;
+        invalid_request.padding.push_back({true, {}, 0});
+        (void)ime::fcitx5::encode_message(invalid_request);
     } catch (...) {
         rejected_empty_chosen_char = true;
     }
@@ -98,8 +81,9 @@ int run_protocol_tests() {
 
     bool rejected_decoded_zero_candidate = false;
     try {
-        (void)ime::fcitx5::decode_predict_response(
-            frame(R"({"candidates":[["\u0000"]],"type":"predict_response"})"));
+        auto invalid_response_bytes = response_bytes;
+        for (size_t i = 0; i < sizeof(char32_t); ++i) invalid_response_bytes[invalid_response_bytes.size() - 1 - i] = 0;
+        (void)ime::fcitx5::decode_predict_response(invalid_response_bytes);
     } catch (...) {
         rejected_decoded_zero_candidate = true;
     }
@@ -115,7 +99,9 @@ int run_protocol_tests() {
 
     bool rejected_missing_field = false;
     try {
-        (void)ime::fcitx5::decode_predict_request(frame(R"({"context":"","type":"predict_request"})"));
+        auto truncated = bytes;
+        truncated.pop_back();
+        (void)ime::fcitx5::decode_predict_request(truncated);
     } catch (...) {
         rejected_missing_field = true;
     }
@@ -129,7 +115,7 @@ int run_protocol_tests() {
     }
     ok = ok && rejected_invalid_scalar;
 
-    const auto socket_path = std::filesystem::temp_directory_path() / "ime-fcitx5-protocol-test.sock";
+    const auto socket_path = std::filesystem::temp_directory_path() / "llavon-ime-protocol-test.sock";
     ime::fcitx5::UnixSocketServer server;
     server.bind_listen(socket_path);
     std::thread server_thread([&server]() {
@@ -143,7 +129,7 @@ int run_protocol_tests() {
     ok = ok && client.recv_exact(3) == payload;
     server_thread.join();
 
-    const auto active_socket_path = std::filesystem::temp_directory_path() / "ime-fcitx5-active-test.sock";
+    const auto active_socket_path = std::filesystem::temp_directory_path() / "llavon-ime-active-test.sock";
     ime::fcitx5::UnixSocketServer active_server;
     active_server.bind_listen(active_socket_path);
     bool rejected_active_socket = false;
@@ -155,14 +141,14 @@ int run_protocol_tests() {
     }
     ok = ok && rejected_active_socket;
 
-    const auto parentless_socket = std::filesystem::path("ime-fcitx5-parentless-test.sock");
+    const auto parentless_socket = std::filesystem::path("llavon-ime-parentless-test.sock");
     {
         ime::fcitx5::UnixSocketServer parentless_server;
         parentless_server.bind_listen(parentless_socket);
     }
     ok = ok && !std::filesystem::exists(parentless_socket);
 
-    const auto non_socket_path = std::filesystem::temp_directory_path() / "ime-fcitx5-non-socket-test";
+    const auto non_socket_path = std::filesystem::temp_directory_path() / "llavon-ime-non-socket-test";
     {
         std::ofstream file(non_socket_path);
         file << "not a socket";

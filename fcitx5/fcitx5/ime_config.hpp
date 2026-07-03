@@ -7,7 +7,7 @@
 
 namespace ime::fcitx5 {
 
-inline constexpr const char* kFcitxConfigFile = "conf/ime-fcitx5.conf";
+inline constexpr const char* kFcitxConfigFile = "conf/llavon-ime.conf";
 
 enum class BopomofoKeyboardLayout { Standard };
 FCITX_CONFIG_ENUM_NAME(BopomofoKeyboardLayout, "標準");

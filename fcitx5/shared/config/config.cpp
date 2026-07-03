@@ -19,11 +19,6 @@ const char* non_empty_env(const char* name) {
     return value != nullptr && value[0] != '\0' ? value : nullptr;
 }
 
-const char* non_empty_env(const char* preferred, const char* fallback) {
-    if (const char* value = non_empty_env(preferred)) return value;
-    return non_empty_env(fallback);
-}
-
 bool allowed_value(std::string_view value, std::initializer_list<std::string_view> allowed) {
     return std::find(allowed.begin(), allowed.end(), value) != allowed.end();
 }
@@ -309,16 +304,10 @@ std::vector<std::filesystem::path> fcitx_config_paths() {
     std::vector<std::filesystem::path> paths;
     append_unique_path(paths, config_path());
 #ifdef __APPLE__
-    if (!non_empty_env("IME_FCITX5_CONFIG_PATH", "IME_LINUX_CONFIG_PATH")) {
-        append_unique_path(paths, macos_fcitx_config_path("ime-fcitx5.conf"));
+    if (!non_empty_env("IME_FCITX5_CONFIG_PATH")) {
+        append_unique_path(paths, macos_fcitx_config_path("llavon-ime.conf"));
     }
 #endif
-    if (!non_empty_env("IME_FCITX5_CONFIG_PATH", "IME_LINUX_CONFIG_PATH")) {
-        append_unique_path(paths, fcitx_config_path_for("ime-linux.conf"));
-#ifdef __APPLE__
-        append_unique_path(paths, macos_fcitx_config_path("ime-linux.conf"));
-#endif
-    }
     return paths;
 }
 
@@ -340,11 +329,9 @@ Config load_config() {
         ec.clear();
     }
 
-    for (const auto& legacy_path : {legacy_config_path(), legacy_json_config_path_for("ime-linux")}) {
-        if (std::filesystem::exists(legacy_path, ec) && !ec)
-            return with_default_model(load_legacy_json_config(legacy_path));
-        ec.clear();
-    }
+    if (const auto legacy_path = legacy_config_path(); std::filesystem::exists(legacy_path, ec) && !ec)
+        return with_default_model(load_legacy_json_config(legacy_path));
+    ec.clear();
     return default_config();
 }
 
@@ -395,21 +382,21 @@ Config config_from_json(const nlohmann::json& json) {
 }
 
 std::filesystem::path config_path() {
-    if (const char* override = non_empty_env("IME_FCITX5_CONFIG_PATH", "IME_LINUX_CONFIG_PATH")) {
+    if (const char* override = non_empty_env("IME_FCITX5_CONFIG_PATH")) {
         return override;
     }
-    return fcitx_config_path_for("ime-fcitx5.conf");
+    return fcitx_config_path_for("llavon-ime.conf");
 }
 
 std::filesystem::path legacy_config_path() {
-    return legacy_json_config_path_for("ime-fcitx5");
+    return legacy_json_config_path_for("llavon-ime");
 }
 
 std::filesystem::path runtime_dir() {
     if (const char* xdg = non_empty_env("XDG_RUNTIME_DIR")) {
-        return std::filesystem::path(xdg) / "ime-fcitx5";
+        return std::filesystem::path(xdg) / "llavon-ime";
     }
-    return std::filesystem::temp_directory_path() / "ime-fcitx5";
+    return std::filesystem::temp_directory_path() / "llavon-ime";
 }
 
 std::filesystem::path socket_path() {

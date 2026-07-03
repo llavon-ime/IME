@@ -6,6 +6,7 @@
 #include <chrono>
 #include <cstdint>
 #include <cstdlib>
+#include <cstring>
 #include <exception>
 #include <stdexcept>
 #include <string>
@@ -14,7 +15,7 @@
 #include <utility>
 
 #include "ipc/unix_socket.hpp"
-#include "protocol/json_codec.hpp"
+#include "protocol/binary_codec.hpp"
 
 namespace ime::fcitx5 {
 
@@ -23,13 +24,13 @@ namespace {
 constexpr std::uint32_t kMaxFramePayloadBytes = 1024 * 1024;
 
 #ifndef IME_FCITX5_SERVICE_NAME
-#define IME_FCITX5_SERVICE_NAME "ime-fcitx5-service"
+#define IME_FCITX5_SERVICE_NAME "llavon-ime-service"
 #endif
 
 ByteVector recv_message(const UnixSocketConnection& connection) {
     auto header = connection.recv_exact(4);
-    const auto length = static_cast<std::uint32_t>(header[0]) | (static_cast<std::uint32_t>(header[1]) << 8U) |
-                        (static_cast<std::uint32_t>(header[2]) << 16U) | (static_cast<std::uint32_t>(header[3]) << 24U);
+    std::uint32_t length = 0;
+    std::memcpy(&length, header.data(), sizeof(length));
     if (length > kMaxFramePayloadBytes) throw std::runtime_error("protocol frame is too large");
     auto payload = connection.recv_exact(length);
     header.insert(header.end(), payload.begin(), payload.end());
@@ -38,14 +39,6 @@ ByteVector recv_message(const UnixSocketConnection& connection) {
 
 std::optional<std::filesystem::path> resolved_service_path() {
     if (const char* override = std::getenv("IME_FCITX5_SERVICE_PATH")) {
-        if (override[0] != '\0') {
-            std::filesystem::path path(override);
-            if (std::filesystem::exists(path)) return path;
-            return std::nullopt;
-        }
-    }
-
-    if (const char* override = std::getenv("IME_LINUX_SERVICE_PATH")) {
         if (override[0] != '\0') {
             std::filesystem::path path(override);
             if (std::filesystem::exists(path)) return path;
