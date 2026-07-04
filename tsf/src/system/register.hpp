@@ -94,6 +94,15 @@ HRESULT RegisterServer() {
         hr = pCategoryMgr->RegisterCategory(
             tsf::Globals::text_service_clsid, GUID_TFCAT_DISPLAYATTRIBUTEPROVIDER, tsf::Globals::text_service_clsid);
     }
+    // Required for the TIP to be listed in the Windows 8+ Settings UI.
+    if (SUCCEEDED(hr)) {
+        hr = pCategoryMgr->RegisterCategory(
+            tsf::Globals::text_service_clsid, GUID_TFCAT_TIPCAP_IMMERSIVESUPPORT, tsf::Globals::text_service_clsid);
+    }
+    if (SUCCEEDED(hr)) {
+        hr = pCategoryMgr->RegisterCategory(
+            tsf::Globals::text_service_clsid, GUID_TFCAT_TIPCAP_SYSTRAYSUPPORT, tsf::Globals::text_service_clsid);
+    }
     if (pCategoryMgr) {
         pCategoryMgr->Release();
     }
@@ -116,6 +125,10 @@ HRESULT UnregisterServer() {
             tsf::Globals::text_service_clsid, GUID_TFCAT_TIP_KEYBOARD, tsf::Globals::text_service_clsid);
         pCategoryMgr->UnregisterCategory(
             tsf::Globals::text_service_clsid, GUID_TFCAT_DISPLAYATTRIBUTEPROVIDER, tsf::Globals::text_service_clsid);
+        pCategoryMgr->UnregisterCategory(
+            tsf::Globals::text_service_clsid, GUID_TFCAT_TIPCAP_IMMERSIVESUPPORT, tsf::Globals::text_service_clsid);
+        pCategoryMgr->UnregisterCategory(
+            tsf::Globals::text_service_clsid, GUID_TFCAT_TIPCAP_SYSTRAYSUPPORT, tsf::Globals::text_service_clsid);
         pCategoryMgr->Release();
     }
 
