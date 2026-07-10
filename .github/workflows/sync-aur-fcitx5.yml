@@ -16,6 +16,7 @@ env:
 jobs:
   sync-aur-github-repo:
     name: Sync GitHub AUR repo
+    if: github.repository_owner == 'llavon-ime'
     runs-on: ubuntu-latest
     env:
       AUR_GITHUB_TOKEN: ${{ secrets.AUR_GITHUB_TOKEN }}
