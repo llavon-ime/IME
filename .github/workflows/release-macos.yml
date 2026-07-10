@@ -16,7 +16,7 @@ permissions:
 
 env:
   FCITX5_MACOS_VERSION: "0.3.4"
-  MODEL_FILE_ID: "1cPvtxCcCNy56cQazP052YQz9QzjeLrWS"
+  MODEL_REPOSITORY: "tony65535/llavon-ime-llama-250m-GGUF"
   MODEL_FILE_NAME: "llavon-ime-llama-250m-Q4_K_M.gguf"
   HOMEBREW_TAP_REPO: "llavon-ime/homebrew-llavon-ime"
   HOMEBREW_CASK_PATH: "Casks/llavon-ime.rb"
@@ -131,15 +131,11 @@ jobs:
       - name: Download bundled model
         run: |
           set -euo pipefail
-          python3 -m venv "${RUNNER_TEMP}/gdown-venv"
-          source "${RUNNER_TEMP}/gdown-venv/bin/activate"
-          python -m pip install --upgrade pip
-          python -m pip install gdown
           mkdir -p models
           model_path="models/${MODEL_FILE_NAME}"
-          python -m gdown \
-            "${MODEL_FILE_ID}" \
-            -O "${model_path}"
+          curl --fail --location --retry 3 \
+            --output "${model_path}" \
+            "https://huggingface.co/${MODEL_REPOSITORY}/resolve/main/${MODEL_FILE_NAME}"
           test -s "${model_path}"
           case "${model_path}" in
             *.gguf) ;;

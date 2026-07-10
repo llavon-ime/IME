@@ -20,13 +20,13 @@ brew install --cask llavon-ime/llavon-ime/llavon-ime
 
 ## 模型
 
-目前測試用模型暫放於 Google Drive：
+模型可從 Hugging Face 下載：
 
 ```text
-https://drive.google.com/file/d/1cPvtxCcCNy56cQazP052YQz9QzjeLrWS/view?usp=sharing
+https://huggingface.co/tony65535/llavon-ime-llama-250m-GGUF
 ```
 
-這是臨時下載連結。模型本身採用 CC-BY-NC-4.0 授權，請依照該授權條款使用；若要散布包含模型的安裝包，也必須遵守模型授權限制。
+模型本身採用 CC-BY-NC-4.0 授權，請依照該授權條款使用；若要散布包含模型的安裝包，也必須遵守模型授權限制。
 
 ## 取得原始碼
 
