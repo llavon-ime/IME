@@ -1,6 +1,8 @@
 # 拉風輸入法
 
-拉風輸入法的 Windows TSF 前端與推論服務。
+# 警告 這個倉庫是舊版本倉庫 已不再使用 請前往各版本獨立倉庫
+
+windows 的版本已移至 [llavon-ime/ime-windows](https://github.com/llavon-ime/ime-windows)。
 
 Linux/macOS 的 fcitx5 frontend、AUR package 與 macOS release workflow 已移至 [llavon-ime/ime-fcitx5](https://github.com/llavon-ime/ime-fcitx5)。
 
